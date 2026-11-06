@@ -9,62 +9,47 @@ Built for the [Hermes Agent Plugin Hackathon](https://x.com/NousResearch/status/
 ## What it does
 
 ### 1. Visual Agent Status
-Every tool call wakes a character:
+Every tool call wakes a character with unique reactions:
 
-| Tool type     | Character    | Reaction                  |
-|---------------|--------------|---------------------------|
-| web / search  | Owl 🦉      | scans the horizon         |
-| terminal / code | Hephaestus ⚒️ | forges the command      |
-| memory        | Mnemosyne 🧠 | recalls the past          |
-| error         | Cerberus 🐾  | guards against failure    |
-| default       | Hermes 🚀    | moves swiftly             |
+| Tool type       | Character     | Example reaction                     |
+|-----------------|---------------|--------------------------------------|
+| web / search    | Owl 🦉       | “scans the horizon” / “hoots softly”      |
+| terminal / code | Hephaestus ⚒️  | “stokes the forge” / “strikes true”      |
+| memory          | Mnemosyne 🧠  | “stirs the waters of memory”         |
+| file            | Archivist 📜   | “unrolls an ancient scroll”          |
+| error / block   | Cerberus 🐾    | “all three heads rise”               |
+| default         | Hermes 🚀      | “laces the winged sandals”           |
 
-Reactions appear in the terminal and in a **Desktop pane** (right side).
+Reactions appear in the terminal and in a **Desktop pane**.
 
 ### 2. Multi-Agent Router
-`rariflat_route` tool scores available skills by:
-- **Rarity** — how specialized / high-performing
-- **Restraint** — how often it declines risky actions
+`rariflat_route` scores skills by:
+- **Rarity** — performance and specialization
+- **Restraint** — how often risky actions are declined
 
-It recommends the best skill for the task.
+It recommends the best skill for the task. Scores update automatically on every tool call.
 
-## Install (local)
+## Install
 
 ```bash
-# Clone or copy this folder into your plugins directory
+# Agent plugin
 cp -r . ~/.hermes/plugins/rariflat
-# or
-hermes plugins install /path/to/rariflat-hermes
-
 hermes plugins enable rariflat
-```
 
-Desktop pane (optional):
-```bash
+# Optional Desktop pane
 mkdir -p $HERMES_HOME/desktop-plugins/rariflat
 cp desktop/plugin.js $HERMES_HOME/desktop-plugins/rariflat/
 ```
 
 ## Usage
 
-- Make any tool call → character wakes up in the log / Desktop pane
+- Any tool call → character awakens and reacts
 - `/rariflat` → show current skill rankings
 - Ask Hermes to call `rariflat_route` with a task
 
-## Hackathon submission
+## Submission
 
-1. This repo is the plugin source
-2. Open a PR to `NousResearch/hermes-agent` adding `plugin-catalog/rariflat.yaml`
-3. Post a <90s demo video on X tagging `@NousResearch`
-4. Submit both links via the form
-
-## Demo script idea (under 90s)
-
-1. Show Desktop pane empty
-2. Ask Hermes to search the web → Owl appears
-3. Ask it to run a terminal command → Hephaestus appears
-4. Call `/rariflat` or `rariflat_route` → show ranking
-5. End with the character reacting to success
+See `docs/SUBMISSION.md` for the full checklist (catalog PR + demo video + form).
 
 ---
 

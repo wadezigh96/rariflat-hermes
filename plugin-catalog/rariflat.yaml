@@ -1,4 +1,3 @@
-# Example catalog entry (submit this file via PR to NousResearch/hermes-agent)
 name: rariflat
 description: Visual Agent Status + Multi-Agent Router. Characters come alive on every tool call. Routes skills by rarity and restraint.
 repo: https://github.com/wadezigh96/rariflat-hermes
