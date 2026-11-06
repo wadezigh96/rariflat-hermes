@@ -8,31 +8,25 @@ Built for the [Hermes Agent Plugin Hackathon](https://x.com/NousResearch/status/
 
 ## What it does
 
-### 1. Visual Agent Status
+### Visual Agent Status
 Every tool call wakes a character with unique reactions:
 
-| Tool type       | Character     | Example reaction                     |
-|-----------------|---------------|--------------------------------------|
-| web / search    | Owl 🦉       | “scans the horizon” / “hoots softly”      |
-| terminal / code | Hephaestus ⚒️  | “stokes the forge” / “strikes true”      |
-| memory          | Mnemosyne 🧠  | “stirs the waters of memory”         |
-| file            | Archivist 📜   | “unrolls an ancient scroll”          |
-| error / block   | Cerberus 🐾    | “all three heads rise”               |
-| default         | Hermes 🚀      | “laces the winged sandals”           |
+| Tool type       | Character     | Example                          |
+|-----------------|---------------|----------------------------------|
+| web / search    | Owl 🦉       | scans the horizon / hoots softly |
+| terminal / code | Hephaestus ⚒️  | stokes the forge / strikes true  |
+| memory          | Mnemosyne 🧠  | stirs the waters of memory       |
+| error / block   | Cerberus 🐾    | all three heads rise             |
+| default         | Hermes 🚀      | laces the winged sandals         |
 
 Reactions appear in the terminal and in a **Desktop pane**.
 
-### 2. Multi-Agent Router
-`rariflat_route` scores skills by:
-- **Rarity** — performance and specialization
-- **Restraint** — how often risky actions are declined
-
-It recommends the best skill for the task. Scores update automatically on every tool call.
+### Multi-Agent Router
+`rariflat_route` ranks skills by rarity and restraint. Scores update on every call and persist between sessions.
 
 ## Install
 
 ```bash
-# Agent plugin
 cp -r . ~/.hermes/plugins/rariflat
 hermes plugins enable rariflat
 
@@ -49,7 +43,10 @@ cp desktop/plugin.js $HERMES_HOME/desktop-plugins/rariflat/
 
 ## Submission
 
-See `docs/SUBMISSION.md` for the full checklist (catalog PR + demo video + form).
+- Catalog entry template: `plugin-catalog/rariflat.yaml`
+- PR description: `docs/PR.md`
+- Demo script: `docs/DEMO.md`
+- Full checklist: `docs/SUBMISSION.md`
 
 ---
 
