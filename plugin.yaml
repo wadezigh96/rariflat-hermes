@@ -1,28 +1,16 @@
 name: rariflat
-version: "1.0.0"
-description: Visual Agent Status + Multi-Agent Router. Characters come alive on every tool call. Routes skills by rarity and restraint.
+version: "1.1.0"
+description: Visual Agent Status + Intelligent Router. Characters react on every tool call. Routes and guards skills by rarity + restraint.
 manifest_version: 2
 api_version: 1
 license: MIT
 homepage: https://github.com/wadezigh96/rariflat-hermes
-tags: [visual, status, router, skills, desktop]
+tags: [visual, status, router, guard, skills, desktop]
 provides_tools:
   - rariflat_route
   - rariflat_status
+  - rariflat_guard
 provides_hooks:
   - pre_tool_call
   - post_tool_call
 requires_hermes: ">=0.21"
-config_schema:
-  enable_visual:
-    type: bool
-    default: true
-    description: Show character reactions on tool calls
-  enable_router:
-    type: bool
-    default: true
-    description: Enable skill routing by rarity + restraint
-  persist_scores:
-    type: bool
-    default: true
-    description: Persist skill scores between sessions
