@@ -207,12 +207,9 @@ def _rank_tools(task: str, tools: dict[str, dict]) -> list[dict]:
         recent = _recent_usage_metrics(data)
         recent_uses = recent["recent_uses"]
         repeated_calls = recent["repeated_calls_30s"]
-        if "recent_events" not in data:
-            repeated_calls = max(0, min(uses, int(data.get("repeated_calls", 0))))
-            recent_uses = uses
-            restraint = (1.0 - repeated_calls / uses) * 100 if uses else 100.0
-        else:
-            restraint = (1.0 - repeated_calls / recent_uses) * 100 if recent_uses else 100.0
+        # Legacy records are migrated on load to an empty live window. Lifetime
+        # repeat totals remain available separately and never contaminate live restraint.
+        restraint = (1.0 - repeated_calls / recent_uses) * 100 if recent_uses else 100.0
         score = match * 0.40 + reliability * 0.25 + rarity * 0.20 + restraint * 0.15
         ranked.append({
             "skill": name,
@@ -271,6 +268,13 @@ class Store:
                 raw = data.get("tools", data) if isinstance(data, dict) else {}
                 if isinstance(raw, dict):
                     self.tools = {str(k): v for k, v in raw.items() if isinstance(v, dict)}
+                    # Legacy score files have lifetime repeat counters but no timestamps.
+                    # Preserve those totals, but never mislabel them as repeats in the live window.
+                    for item in self.tools.values():
+                        if "recent_events" not in item:
+                            item["repeated_calls_total"] = int(item.get("repeated_calls_total", item.get("repeated_calls", 0)))
+                            item["repeated_calls"] = 0
+                            item["recent_events"] = []
                 if isinstance(data, dict) and "tools" in data:
                     self.sessions_started = max(0, int(data.get("sessions_started", 0)))
                     self.first_session_at = data.get("first_session_at")
@@ -562,7 +566,7 @@ def register(ctx):
         if not store.tools:
             lines.append("No tools tracked yet. Make some calls!")
         else:
-            for i, (name, data) in enumerate(sorted(store.tools.items(), key=lambda x: x[1].get("uses", 0), reverse=True)[:10], 1):
+            for i, (name, data) in enumerate(sorted(store.tools.items(), key=lambda x: x[1].get("uses", 0), reverse=True), 1):
                 lines.append(f"{i}. {name} · success {data.get('successes', 0)}/{data.get('uses', 0)} · fail streak {data.get('fail_streak', 0)}")
         return "\n".join(lines)
 
