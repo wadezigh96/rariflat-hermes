@@ -266,6 +266,7 @@ def test_usage_timestamps_and_failures_are_persisted(rf, tmp_path):
     assert item["successes"] == 1 and item["failures"] == 1
     assert item["first_used"] == 100 and item["last_used"] == 110
     assert item["last_success"] == 100 and item["last_failure"] == 110
+    store.save(force=True)
     reloaded = rf.Store(tmp_path)
     assert reloaded.tools["web_search"]["last_used"] == 110
 
