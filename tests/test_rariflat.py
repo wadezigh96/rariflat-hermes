@@ -228,6 +228,6 @@ def test_natural_language_documentation_task_has_nonzero_task_fit(rf, ctx):
         "task": "find and summarize public documentation about Hermes plugins"
     }))
     assert out["recommended"]
-    assert any(item["task_fit"] > 0 for item in out["recommended"])
+    assert any(item["task_match_score"] > 0 for item in out["recommended"])
     assert out["best"] == "web_search"
 
