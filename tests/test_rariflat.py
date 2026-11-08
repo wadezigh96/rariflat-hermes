@@ -132,3 +132,42 @@ def test_status_is_json(rf, ctx):
     result = json.loads(ctx.tools["rariflat_status"]({}))
     assert result["guard_enabled"] is False
     assert result["tracked_tools"] == 0
+
+
+def test_tokens_never_learn_credential_fields(rf):
+    tokens = rf._tokens({
+        "query": "python asyncio",
+        "api_key": "sk-live-supersecret",
+        "nested": {
+            "Authorization": "Bearer topsecret",
+            "clientSecret": "hidden-secret",
+            "safe": "documentation",
+        },
+        "header": "Bearer inline-secret",
+        "note": "password=hunter2",
+    })
+    joined = " ".join(tokens).lower()
+    for secret in ("sk-live-supersecret", "topsecret", "hidden-secret", "inline-secret", "hunter2"):
+        assert secret not in joined
+    assert "python" in tokens and "asyncio" in tokens and "documentation" in tokens
+
+
+def test_http_status_codes_use_http_semantics(rf):
+    assert rf.judge_result({"status_code": 200}) is True
+    assert rf.judge_result({"status_code": 204}) is True
+    assert rf.judge_result({"status_code": 302}) is True
+    assert rf.judge_result({"status_code": 400}) is False
+    assert rf.judge_result({"status_code": 503}) is False
+    assert rf.judge_result({"status_code": 0}) is False
+    assert rf.judge_result({"exit_code": 1, "status_code": 200}) is False
+
+
+def test_loop_cache_prunes_expired_signatures_and_is_bounded(rf, monkeypatch):
+    store = rf.Store()
+    monkeypatch.setenv("RARIFLAT_LOOP_REPEAT", "3")
+    monkeypatch.setenv("RARIFLAT_LOOP_WINDOW", "10")
+    for i in range(1100):
+        store.loop_detected("browser", {"url": f"https://example.com/{i}"}, now=100.0)
+    assert len(store._recent_calls) <= 1024
+    store.loop_detected("browser", {"url": "https://new.example/"}, now=200.0)
+    assert len(store._recent_calls) == 1

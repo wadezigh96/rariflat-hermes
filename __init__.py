@@ -40,16 +40,44 @@ CHARACTERS = {
 }
 
 
-def _tokens(value: Any) -> set[str]:
+_SENSITIVE_KEY_RE = re.compile(
+    r"(?:^|[_-])(password|passwd|pwd|secret|token|api[_-]?key|"
+    r"access[_-]?key|private[_-]?key|authorization|cookie|credential)s?(?:$|[_-])",
+    re.IGNORECASE,
+)
+_INLINE_SECRET_RE = re.compile(
+    r"(?i)\b(api[_-]?key|access[_-]?token|refresh[_-]?token|password|passwd|secret|client[_-]?secret)\b(\s*[:=]\s*)[^\s,;]+"
+)
+_BEARER_RE = re.compile(r"(?i)\bBearer\s+[^\s,;]+")
+_JWT_RE = re.compile(r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b")
+
+
+def _safe_token_parts(value: Any) -> list[str]:
     if value is None:
-        return set()
+        return []
     if isinstance(value, dict):
-        value = " ".join(f"{k} {v}" for k, v in value.items())
-    elif isinstance(value, (list, tuple, set)):
-        value = " ".join(map(str, value))
-    else:
-        value = str(value)
-    return {t for t in re.findall(r"[a-z0-9_+-]{2,}", value.lower()) if t not in STOP_WORDS}
+        parts = []
+        for key, item in value.items():
+            key_text = str(key)
+            if _SENSITIVE_KEY_RE.search(re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", key_text).replace(" ", "_")):
+                continue
+            parts.append(key_text)
+            parts.extend(_safe_token_parts(item))
+        return parts
+    if isinstance(value, (list, tuple, set)):
+        return [part for item in value for part in _safe_token_parts(item)]
+    text = str(value)
+    text = _INLINE_SECRET_RE.sub(r"\1\2[REDACTED]", text)
+    text = _BEARER_RE.sub("Bearer [REDACTED]", text)
+    text = _JWT_RE.sub("[REDACTED]", text)
+    return [text]
+
+
+def _tokens(value: Any) -> set[str]:
+    """Extract useful routing tokens without retaining credential values."""
+    parts = _safe_token_parts(value)
+    text = " ".join(parts)
+    return {t for t in re.findall(r"[a-z0-9_+-]{2,}", text.lower()) if t not in STOP_WORDS}
 
 
 def _get_character(tool_name: str) -> dict:
@@ -68,10 +96,16 @@ def judge_result(result: Any) -> bool:
     if isinstance(result, dict):
         if result.get("success") is False or result.get("ok") is False or result.get("error"):
             return False
-        for key in ("exit_code", "returncode", "status_code"):
+        for key in ("exit_code", "returncode"):
             value = result.get(key)
             if isinstance(value, (int, float)) and value != 0:
                 return False
+        # HTTP 2xx succeeds; redirects are not failures, but 4xx/5xx are.
+        status_code = result.get("status_code")
+        if isinstance(status_code, (int, float)) and (
+            status_code == 0 or status_code < 100 or status_code >= 400
+        ):
+            return False
         return True
     if isinstance(result, (int, float)):
         return result == 0
@@ -139,9 +173,19 @@ class Store:
             signature = repr(args)
         key = tool + ":" + hashlib.sha256(signature.encode("utf-8")).hexdigest()
         with self._lock:
-            recent = [t for t in self._recent_calls.get(key, []) if stamp - t <= window]
+            # Prune expired signatures globally and bound high-cardinality inputs.
+            for old_key, timestamps in list(self._recent_calls.items()):
+                fresh = [t for t in timestamps if 0 <= stamp - t <= window]
+                if fresh:
+                    self._recent_calls[old_key] = fresh
+                else:
+                    self._recent_calls.pop(old_key, None)
+            recent = self._recent_calls.pop(key, [])
             recent.append(stamp)
+            recent = recent[-repeats:]
             self._recent_calls[key] = recent
+            while len(self._recent_calls) > 1024:
+                self._recent_calls.pop(next(iter(self._recent_calls)))
             return len(recent) >= repeats
 
     def record_result(self, tool_name: str, args: Any, success: bool, timestamp: float | None = None) -> None:
