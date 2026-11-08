@@ -124,6 +124,11 @@ def _safe_fingerprint_value(value: Any) -> Any:
     return str(value)
 
 
+def _learn_args_enabled() -> bool:
+    """Whether argument text may contribute task tokens to local recommendations."""
+    return os.getenv("RARIFLAT_LEARN_ARGS", "1").strip().lower() not in {"0", "false", "no", "off"}
+
+
 def _get_character(tool_name: str) -> dict:
     for token in re.split(r"[^a-z0-9]+", str(tool_name or "").lower()):
         if token in CHARACTERS and token != "default":
@@ -276,6 +281,8 @@ class Store:
                             item["repeated_calls"] = 0
                             item["recent_events"] = []
                 if isinstance(data, dict) and "tools" in data:
+                    if "RARIFLAT_GUARD" not in os.environ and isinstance(data.get("guard_enabled"), bool):
+                        self.guard_enabled = data["guard_enabled"]
                     self.sessions_started = max(0, int(data.get("sessions_started", 0)))
                     self.first_session_at = data.get("first_session_at")
                     self.last_session_at = data.get("last_session_at")
@@ -370,7 +377,8 @@ class Store:
                 item["failures"] = int(item.get("failures", 0)) + 1
                 item["fail_streak"] = int(item.get("fail_streak", 0)) + 1
                 item["last_failure"] = now
-            item["tokens"] = sorted(set(item.get("tokens", [])) | _tokens(args))[:160]
+            if _learn_args_enabled():
+                item["tokens"] = sorted(set(item.get("tokens", [])) | _tokens(args))[:160]
         self.save()
 
     def save(self, force: bool = False) -> None:
@@ -383,6 +391,7 @@ class Store:
                 self.data_dir.mkdir(parents=True, exist_ok=True)
                 payload = json.dumps({
                     "tools": self.tools,
+                    "guard_enabled": self.guard_enabled,
                     "sessions_started": self.sessions_started,
                     "first_session_at": self.first_session_at,
                     "last_session_at": self.last_session_at,
@@ -517,7 +526,10 @@ def register(ctx):
             return None
         data = store.tools.get(tool, {})
         streak = int(data.get("fail_streak", 0))
-        if streak >= _guard_threshold() and _cooldown() and time.time() - float(data.get("last_failure", 0)) >= _cooldown():
+        cooldown = _cooldown()
+        if streak >= _guard_threshold() and (
+            cooldown == 0 or time.time() - float(data.get("last_failure", 0)) >= cooldown
+        ):
             data["fail_streak"] = 0
             store.save()
             streak = 0
@@ -544,7 +556,9 @@ def register(ctx):
         reaction = (char.get("success") if success else char.get("fail") or ["completed"])[0]
         if _VERBOSE:
             logger.info("%s %s: %s", char["emoji"], char["name"], reaction)
-        _emit("done", tool, success, "" if success else str(result)[:240])
+        # Tool output can contain credentials or user data; the Desktop event only
+        # needs a safe status signal, not a copy of the raw failure payload.
+        _emit("done", tool, success, "" if success else "Tool failed; details withheld to protect sensitive output.")
         return None
 
     ctx.register_hook("pre_tool_call", on_pre_tool)

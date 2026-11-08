@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# Install Rariflat into ~/.hermes/plugins/rariflat (copies only needed files).
+# Install Rariflat and its optional Desktop pane from this checkout.
 set -euo pipefail
 SRC="$(cd "$(dirname "$0")" && pwd)"
-DEST="${HERMES_HOME:-$HOME/.hermes}/plugins/rariflat"
-mkdir -p "$DEST"
-rsync -a --exclude '.git' --exclude 'docs' --exclude 'plugin-catalog' --exclude 'tests' --exclude '.github' --exclude '*.md' --exclude 'install.sh' "$SRC/" "$DEST/"
-# Always keep README and LICENSE
-cp "$SRC/README.md" "$SRC/LICENSE" "$DEST/" 2>/dev/null || true
-echo "Installed to $DEST"
+HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
+DEST="$HERMES_HOME/plugins/rariflat"
+DESKTOP_DEST="$HERMES_HOME/desktop-plugins/rariflat"
+
+mkdir -p "$DEST/desktop" "$DESKTOP_DEST"
+cp "$SRC/plugin.yaml" "$SRC/__init__.py" "$SRC/README.md" "$SRC/LICENSE" "$DEST/"
+cp "$SRC/desktop/plugin.js" "$SRC/desktop/event-contract.mjs" "$DEST/desktop/"
+cp "$SRC/desktop/plugin.js" "$SRC/desktop/event-contract.mjs" "$DESKTOP_DEST/"
+
+echo "Installed plugin to $DEST"
+echo "Installed optional Desktop pane to $DESKTOP_DEST"
 echo "Now run: hermes plugins enable rariflat"
-echo "Desktop pane (optional):"
-echo "  mkdir -p \"\$HERMES_HOME/desktop-plugins/rariflat\" && cp \"$DEST/desktop/plugin.js\" \"\$HERMES_HOME/desktop-plugins/rariflat/\""

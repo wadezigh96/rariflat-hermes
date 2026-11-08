@@ -40,7 +40,7 @@ Each recommendation includes the measured factor values, use/repeat counts, and 
 Until the official catalog PR is accepted and published, install the reviewed source revision directly:
 
 ```bash
-hermes plugins install wadezigh96/rariflat-hermes --ref 950796253faa2d9b69c3c2d1256924d18ae03e9c --enable
+hermes plugins install wadezigh96/rariflat-hermes --ref 31c522ddccd32674a474bf8b73273b4605e14b2e --enable
 ```
 
 The `--ref` value is a full immutable 40-character commit SHA. The command uses Hermes' documented Git installation flow; `--enable` skips the enable prompt. Review and accept any dependency-consent prompt shown by Hermes. After the catalog listing is accepted, users can install by catalog name with `hermes plugins install rariflat --enable`.
@@ -117,13 +117,14 @@ export RARIFLAT_LOOP_WINDOW=30
 ```
 
 - `RARIFLAT_FAIL_STREAK`: consecutive failures before the failure-streak guard blocks (default: 3).
-- `RARIFLAT_COOLDOWN`: seconds before a failure-streak lockout can recover (default: 30).
+- `RARIFLAT_COOLDOWN`: seconds before a failure-streak lockout can recover; `0` resets the streak immediately on the next call (default: 30).
 - `RARIFLAT_LOOP_REPEAT`: repeated identical calls required for loop protection; `0` disables loop detection (default: 0).
 - `RARIFLAT_LOOP_WINDOW`: repeated-call observation window in seconds (default: 30).
+- `RARIFLAT_LEARN_ARGS=0`: disable learning task tokens from tool arguments (default: enabled).
 - `RARIFLAT_DATA_DIR`: optional directory override for local score storage.
 - `RARIFLAT_VERBOSE=1`: enable character logs.
 
-Start with conservative thresholds and test in a non-critical workflow. The guard is a lightweight safeguard, not a substitute for tool-level permissions, rate limits, idempotency, or operator approval.
+The `/rariflat guard on/off` choice is saved locally and survives restarts; an explicitly set `RARIFLAT_GUARD` environment variable takes precedence at startup. Start with conservative thresholds and test in a non-critical workflow. The guard is a lightweight safeguard, not a substitute for tool-level permissions, rate limits, idempotency, or operator approval.
 
 ### 6. Optional Desktop pane
 
@@ -134,6 +135,7 @@ The Desktop UI is provided in `desktop/plugin.js` and listens for the plugin eve
 - Scores are stored locally at `~/.hermes/plugin-data/rariflat/scores.json`, unless `RARIFLAT_DATA_DIR` is set.
 - Tool arguments are inspected in memory to learn non-secret task tokens and build repeated-call fingerprints.
 - Credential-like fields and recognized inline secret patterns are filtered before token learning and fingerprinting. No raw arguments or credentials are intentionally persisted.
+- Set `RARIFLAT_LEARN_ARGS=0` to disable argument-token learning; repeated-call fingerprints remain local and continue to exclude recognized credential fields.
 - Rariflat itself does not initiate network requests, telemetry, or subprocess execution.
 - Review your own tool payloads and environment before enabling plugins; pattern-based redaction cannot guarantee detection of every possible secret format.
 - Clear learned scores with:
