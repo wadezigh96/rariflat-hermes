@@ -1,7 +1,4 @@
-// Rariflat Desktop pane — visual characters that react to tool calls
-// Place at: $HERMES_HOME/desktop-plugins/rariflat/plugin.js
-// (or copy from ~/.hermes/plugins/rariflat/desktop/plugin.js)
-
+// Rariflat Desktop pane — receives the official Hermes plugin event bridge.
 import { host, haptic } from '@hermes/plugin-sdk'
 import { useState, useEffect } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
@@ -19,98 +16,68 @@ const CHARACTERS = {
   image: { emoji: '🎨', name: 'Muse', color: '#f06292' },
   vision: { emoji: '👁️', name: 'Seer', color: '#7986cb' },
   tts: { emoji: '🎵', name: 'Bard', color: '#ffee58' },
-  speech: { emoji: '🎵', name: 'Bard', color: '#ffee58' },
   error: { emoji: '🐾', name: 'Cerberus', color: '#ef5350' },
   default: { emoji: '🚀', name: 'Hermes', color: '#00e676' },
 }
-
 function getChar(tool) {
-  const tokens = (tool || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
-  for (const tok of tokens) {
-    if (CHARACTERS[tok]) return CHARACTERS[tok]
+  for (const token of (tool || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)) {
+    if (CHARACTERS[token]) return CHARACTERS[token]
   }
   return CHARACTERS.default
 }
-
 function Pane() {
   const [last, setLast] = useState(null)
   const [history, setHistory] = useState([])
-
   useEffect(() => {
-    const unsub = host.onEvent?.('plugin.rariflat.tool', (evt) => {
-      const phase = evt.payload?.phase || evt.phase || 'done'
-      const tool = evt.payload?.tool || evt.tool
-      const success = (evt.payload?.success ?? evt.success) !== false
-      const reason = evt.payload?.reason || evt.reason
-      if (phase === 'blocked' || phase === 'warned') {
-        const item = { ...CHARACTERS.error, tool, success: false, phase, reason }
-        setLast(item)
-        setHistory((h) => [item, ...h].slice(0, 10))
-        haptic('warning')
-        return
-      }
-      const item = { ...getChar(tool), tool, success, phase }
+    const unsubscribe = host.onEvent?.('plugin.rariflat.tool', (event) => {
+      const payload = event?.payload || event || {}
+      const phase = payload.phase || 'done'
+      const tool = payload.tool || 'unknown tool'
+      const success = payload.success !== false
+      const item = phase === 'blocked'
+        ? { ...CHARACTERS.error, tool, success: false, phase, reason: payload.reason || '' }
+        : { ...getChar(tool), tool, success, phase, reason: payload.reason || '' }
       setLast(item)
-      setHistory((h) => [item, ...h].slice(0, 10))
-      haptic('tap')
+      setHistory((items) => [item, ...items].slice(0, 10))
+      haptic(phase === 'blocked' ? 'warning' : 'tap')
     })
-    return () => unsub?.()
+    return () => unsubscribe?.()
   }, [])
-
-  const label = (x) =>
-    x.phase === 'blocked' ? 'blocked by guard' : x.phase === 'warned' ? 'guard warning (not enforced)' : x.success ? 'succeeded' : 'encountered resistance'
-
+  const label = (item) => item.phase === 'blocked' ? 'blocked by guard'
+    : item.phase === 'started' ? 'working…'
+    : item.success ? 'succeeded' : 'encountered an error'
   return jsxs('div', {
     className: 'flex h-full flex-col gap-3 p-3 text-sm',
     children: [
       jsx('div', { className: 'text-lg font-semibold tracking-tight', children: 'Rariflat' }),
-      last
-        ? jsxs('div', {
-            className: 'rounded-xl p-4 text-center transition-all',
-            style: { background: last.color + '18', border: `1px solid ${last.color}55` },
-            children: [
-              jsx('div', { className: 'text-5xl', children: last.emoji }),
-              jsx('div', { className: 'mt-1 font-medium', children: last.name }),
-              jsx('div', { className: 'mt-0.5 text-xs opacity-70', children: label(last) }),
-              jsx('div', { className: 'mt-1 text-[11px] opacity-50', children: last.tool }),
-              last.reason ? jsx('div', { className: 'mt-1 text-[11px] opacity-60', children: last.reason }) : null,
-            ],
-          })
-        : jsx('div', {
-            className: 'rounded-xl border border-dashed border-white/10 p-6 text-center text-xs opacity-50',
-            children: 'Waiting for tool calls…',
-          }),
+      last ? jsxs('div', {
+        className: 'rounded-xl p-4 text-center transition-all',
+        style: { background: last.color + '18', border: `1px solid ${last.color}55` },
+        children: [
+          jsx('div', { className: 'text-5xl', children: last.emoji }),
+          jsx('div', { className: 'mt-1 font-medium', children: last.name }),
+          jsx('div', { className: 'mt-0.5 text-xs opacity-70', children: label(last) }),
+          jsx('div', { className: 'mt-1 text-[11px] opacity-50', children: last.tool }),
+          last.reason ? jsx('div', { className: 'mt-1 text-[11px] opacity-60', children: last.reason }) : null,
+        ],
+      }) : jsx('div', { className: 'rounded-xl border border-dashed border-white/10 p-6 text-center text-xs opacity-50', children: 'Waiting for tool calls…' }),
       jsx('div', { className: 'mt-1 text-xs font-medium opacity-60', children: 'Recent' }),
-      history.length === 0
-        ? jsx('div', { className: 'text-xs opacity-40', children: 'None yet' })
-        : history.map((h, i) =>
-            jsxs(
-              'div',
-              {
-                className: 'flex items-center gap-2 text-xs',
-                children: [
-                  jsx('span', { children: h.emoji }),
-                  jsx('span', { className: 'flex-1 truncate opacity-80', children: h.tool }),
-                  jsx('span', { className: h.success ? 'text-emerald-400' : 'text-rose-400', children: h.success ? '✓' : '✗' }),
-                ],
-              },
-              i
-            )
-          ),
+      history.length ? history.map((item, index) => jsxs('div', {
+        className: 'flex items-center gap-2 text-xs',
+        children: [
+          jsx('span', { children: item.emoji }),
+          jsx('span', { className: 'flex-1 truncate opacity-80', children: item.tool }),
+          jsx('span', { className: item.success ? 'text-emerald-400' : 'text-rose-400', children: item.phase === 'started' ? '…' : item.success ? '✓' : '✗' }),
+        ],
+      }, index)) : jsx('div', { className: 'text-xs opacity-40', children: 'None yet' }),
     ],
   })
 }
-
 export default {
   id: 'rariflat',
   name: 'Rariflat',
   register(ctx) {
-    ctx.register({
-      id: 'status-pane',
-      area: 'panes',
-      title: 'Rariflat',
-      data: { placement: 'right', width: '300px' },
-      render: () => jsx(Pane, {}),
-    })
+    ctx.register({ id: 'status-pane', area: 'panes', title: 'Rariflat',
+      data: { placement: 'right', width: '300px' }, render: () => jsx(Pane, {}) })
   },
 }
