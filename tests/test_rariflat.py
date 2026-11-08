@@ -231,3 +231,49 @@ def test_natural_language_documentation_task_has_nonzero_task_fit(rf, ctx):
     assert any(item["task_match_score"] > 0 for item in out["recommended"])
     assert out["best"] == "web_search"
 
+
+
+
+def test_recent_restraint_uses_rolling_window(rf, tmp_path):
+    store = rf.Store(tmp_path)
+    args = {"query": "same"}
+    store.record_result("web_search", args, True, timestamp=100)
+    store.record_result("web_search", args, True, timestamp=105)
+    store.record_result("web_search", args, True, timestamp=110)
+    metrics = rf._recent_usage_metrics(store.tools["web_search"], now=111, window=30)
+    assert metrics == {"recent_uses": 3, "repeated_calls_30s": 2}
+    ranked = rf._rank_tools("query same", {"web_search": store.tools["web_search"]})
+    assert ranked[0]["restraint"] == 33.33
+    metrics = rf._recent_usage_metrics(store.tools["web_search"], now=141, window=30)
+    assert metrics == {"recent_uses": 0, "repeated_calls_30s": 0}
+
+
+def test_recent_restraint_ignores_different_args(rf, tmp_path):
+    store = rf.Store(tmp_path)
+    store.record_result("web_search", {"query": "one"}, True, timestamp=100)
+    store.record_result("web_search", {"query": "two"}, True, timestamp=105)
+    metrics = rf._recent_usage_metrics(store.tools["web_search"], now=106)
+    assert metrics == {"recent_uses": 2, "repeated_calls_30s": 0}
+
+
+def test_usage_timestamps_and_failures_are_persisted(rf, tmp_path):
+    store = rf.Store(tmp_path)
+    store.record_result("web_search", {"query": "ok"}, True, timestamp=100)
+    store.record_result("web_search", {"query": "bad"}, False, timestamp=110)
+    item = store.tools["web_search"]
+    assert item["uses"] == 2
+    assert item["successes"] == 1 and item["failures"] == 1
+    assert item["first_used"] == 100 and item["last_used"] == 110
+    assert item["last_success"] == 100 and item["last_failure"] == 110
+    reloaded = rf.Store(tmp_path)
+    assert reloaded.tools["web_search"]["last_used"] == 110
+
+
+def test_runtime_session_count_and_timestamps_persist(rf, tmp_path):
+    store = rf.Store(tmp_path)
+    store.record_session_start(timestamp=100)
+    store.record_session_start(timestamp=200)
+    reloaded = rf.Store(tmp_path)
+    assert reloaded.sessions_started == 2
+    assert reloaded.first_session_at == 100
+    assert reloaded.last_session_at == 200
