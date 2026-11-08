@@ -95,7 +95,7 @@ def _safe_fingerprint_value(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_safe_fingerprint_value(item) for item in value]
     if isinstance(value, str):
-        value = _INLINE_SECRET_RE.sub(r"\\1\\2[REDACTED]", value)
+        value = _INLINE_SECRET_RE.sub(r"\1\2[REDACTED]", value)
         value = _BEARER_RE.sub("Bearer [REDACTED]", value)
         return _JWT_RE.sub("[REDACTED]", value)
     if value is None or isinstance(value, (int, float, bool)):
