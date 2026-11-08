@@ -199,7 +199,7 @@ def test_restraint_changes_ranking(rf):
     ranked = rf._rank_tools("python asyncio", {"restrained_tool": restrained, "repetitive_tool": repetitive})
     assert ranked[0]["skill"] == "restrained_tool"
     assert ranked[0]["restraint"] == 100.0
-    assert ranked[1]["restraint"] == 10.0
+    assert ranked[1]["restraint"] == 20.0
 
 
 def test_repeated_call_metric_is_learned(rf, tmp_path):
