@@ -1,7 +1,7 @@
 name: rariflat
-description: Living status characters for every tool call, plus reliability scoring, task-aware tool routing and an opt-in loop / circuit-breaker guard.
+description: Living status characters for every tool call, reliability scoring, task-aware tool routing, and an opt-in loop/circuit-breaker guard.
 repo: https://github.com/wadezigh96/rariflat-hermes
-sha: REPLACE_WITH_FULL_40_CHAR_COMMIT_SHA  # run: git rev-parse HEAD  (after pushing)
+sha: cf782d17563ed27e6c6a42f5a19db744e375b608
 version: "2.0.0"
 tier: community
 category: desktop
