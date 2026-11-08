@@ -279,3 +279,28 @@ def test_runtime_session_count_and_timestamps_persist(rf, tmp_path):
     assert reloaded.sessions_started == 2
     assert reloaded.first_session_at == 100
     assert reloaded.last_session_at == 200
+
+ 
+def test_legacy_repeat_totals_do_not_masquerade_as_live_window(rf, tmp_path):
+    path = tmp_path / "scores.json"
+    path.write_text(json.dumps({"tools": {
+        "legacy_tool": {"uses": 12, "successes": 10, "repeated_calls": 7, "tokens": ["legacy"]}
+    }}), encoding="utf-8")
+    store = rf.Store(tmp_path)
+    item = store.tools["legacy_tool"]
+    assert item["repeated_calls_total"] == 7
+    assert item["repeated_calls"] == 0
+    assert item["recent_events"] == []
+    metrics = rf._recent_usage_metrics(item, now=500, window=30)
+    assert metrics == {"recent_uses": 0, "repeated_calls_30s": 0}
+    ranked = rf._rank_tools("legacy", store.tools)
+    assert ranked[0]["restraint"] == 100.0
+
+
+def test_status_activity_includes_more_than_ten_tools(rf, ctx):
+    store = rf._get_store()
+    for i in range(12):
+        store.record_result(f"tool_{i}", {"arg": i}, True, timestamp=100 + i)
+    status = json.loads(ctx.tools["rariflat_status"]({}))
+    assert len(status["tools_activity"]) == 12
+    assert {item["name"] for item in status["tools_activity"]} == {f"tool_{i}" for i in range(12)}
