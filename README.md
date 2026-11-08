@@ -37,17 +37,13 @@ Each recommendation includes the measured factor values, use/repeat counts, and 
 
 ### 2. Install Rariflat
 
-The catalog/Plugin Manager installation path should be used when Rariflat is available in the Hermes catalog. Until the catalog entry is accepted and published, install from the source repository using the local plugin workflow supported by your Hermes version.
+Until the official catalog PR is accepted and published, install the reviewed source revision directly:
 
-For a local source checkout, place the repository at:
-
-```text
-~/.hermes/plugins/rariflat/
+```bash
+hermes plugins install wadezigh96/rariflat-hermes --ref 950796253faa2d9b69c3c2d1256924d18ae03e9c --enable
 ```
 
-The directory should contain `plugin.yaml`, `__init__.py`, and the `desktop/` directory. Do not copy only the README.
-
-> Hermes plugin installation commands can vary by release. Use `hermes plugins --help` and the plugin installation documentation for the installed version rather than assuming an unsupported command.
+The `--ref` value is a full immutable 40-character commit SHA. The command uses Hermes' documented Git installation flow; `--enable` skips the enable prompt. Review and accept any dependency-consent prompt shown by Hermes. After the catalog listing is accepted, users can install by catalog name with `hermes plugins install rariflat --enable`.
 
 ### 3. Validate the plugin
 
@@ -55,8 +51,8 @@ From the Rariflat plugin directory, run:
 
 ```bash
 python -m pytest -q tests
-hermes plugins validate .
-hermes doctor
+hermes plugins validate . --install-deps
+hermes plugins doctor .
 ```
 
 The test suite checks ranking, measured rarity/restraint behavior, safe fingerprinting, guard behavior, and other plugin logic. Validation against an installed Hermes CLI checks compatibility with that installation. A passing unit test suite alone does not prove that a particular Desktop runtime is connected.
@@ -154,7 +150,7 @@ Resetting removes the local learned history, so recommendations start learning a
 - **Recommendations seem weak:** provide a more specific task description and allow more representative calls to accumulate.
 - **Guard blocks too often:** turn it off with `/rariflat guard off`, then raise `RARIFLAT_FAIL_STREAK` or `RARIFLAT_LOOP_REPEAT` before re-enabling.
 - **Desktop pane is empty:** confirm your Desktop version supports the plugin SDK/event bridge and that the plugin is loaded. The pane is optional; core CLI/plugin tools can work without it.
-- **Validation fails:** check the Hermes version, run `hermes plugins validate .`, and inspect the full error output before changing the manifest.
+- **Validation fails:** check the Hermes version, run `hermes plugins validate . --install-deps`, and inspect the full error output before changing the manifest.
 
 ## Development and tests
 
@@ -162,10 +158,11 @@ Resetting removes the local learned history, so recommendations start learning a
 python -m pytest -q tests
 node --test tests/desktop_event_contract.test.mjs
 git diff --check
-hermes plugins validate .
+hermes plugins validate . --install-deps
+hermes plugins doctor .
 ```
 
-Run `hermes doctor` in an installed Hermes environment as an additional host diagnostic. CI tests and manifest validation are useful checks, but do not replace a manual end-to-end test on the target Hermes Desktop version.
+Run `hermes plugins doctor .` in the plugin directory for Hermes runtime-contract diagnostics. CI tests and manifest validation are useful checks, but do not replace a manual end-to-end test on the target Hermes Desktop version.
 
 ## Project scope
 
