@@ -10,17 +10,13 @@ def call(ctx, tool, args=None, result="ok"):
 
 
 def test_judge_result_cases(rf):
-    # empty / None success
     assert rf.judge_result(None) is True
     assert rf.judge_result("") is True
-    # plain text containing "error"/"fail" but not at start is success
     assert rf.judge_result("Found 3 results about error handling in Python") is True
     assert rf.judge_result("handle_error function is fine") is True
-    # starts with failure phrase
     assert rf.judge_result("Error: file not found") is False
     assert rf.judge_result("command not found: foo") is False
     assert rf.judge_result("No such file or directory") is False
-    # structured
     assert rf.judge_result({"error": "boom"}) is False
     assert rf.judge_result(json.dumps({"success": False})) is False
     assert rf.judge_result({"exit_code": 2}) is False
@@ -31,12 +27,11 @@ def test_judge_result_cases(rf):
 def test_character_matching_by_token(rf):
     assert rf._get_character("web_search")["name"] == "Owl"
     assert rf._get_character("read_file")["name"] == "Archivist"
-    assert rf._get_character("profile_lookup")["name"] == "Hermes"  # 'file' inside 'profile' must not match
+    assert rf._get_character("profile_lookup")["name"] == "Hermes"
     assert rf._get_character("execute_code")["name"] == "Hephaestus"
 
 
 def test_frequent_tool_never_blocked_default(rf, ctx):
-    """Regression: 50+ normal calls must never block with default config (guard off)."""
     for i in range(60):
         assert call(ctx, "terminal", {"cmd": f"echo {i}"}) is None
 
@@ -47,9 +42,8 @@ def test_block_return_shape_when_enabled(rf, ctx, monkeypatch):
     for _ in range(2):
         call(ctx, "web_search", {"q": "x"}, result="Error: timeout")
     blocked = ctx.hooks["pre_tool_call"]("web_search", {"q": "z"})
-    assert blocked is not None
-    assert blocked.get("action") == "block"
-    assert isinstance(blocked.get("message"), str) and len(blocked["message"]) > 0
+    assert blocked["action"] == "block"
+    assert isinstance(blocked["message"], str) and blocked["message"]
 
 
 def test_guard_off_by_default_only_warns(rf, ctx):
@@ -69,12 +63,11 @@ def test_route_uses_task(rf, ctx):
     for _ in range(4):
         call(ctx, "web_search", {"query": "python asyncio tutorial"})
         call(ctx, "terminal", {"cmd": "git status"})
-    out = json.loads(ctx.tools["rariflat_route"]({"task": "find an asyncio tutorial"}))
-    assert out["best"] == "web_search"
-    out2 = json.loads(ctx.tools["rariflat_route"]({"task": "check git status"}))
-    assert out2["best"] == "terminal"
-    # different tasks produce different results
-    assert out["best"] != out2["best"]
+    web = json.loads(ctx.tools["rariflat_route"]({"task": "find an asyncio tutorial"}))
+    terminal = json.loads(ctx.tools["rariflat_route"]({"task": "check git status"}))
+    assert web["best"] == "web_search"
+    assert terminal["best"] == "terminal"
+    assert web["best"] != terminal["best"]
 
 
 def test_route_empty_history(rf, ctx):
@@ -83,21 +76,19 @@ def test_route_empty_history(rf, ctx):
 
 
 def test_atomic_write_and_corrupt_recovery(rf, tmp_path):
-    s = rf.Store(tmp_path)
-    s.record_result("terminal", {}, True, time.time())
-    s.save(force=True)
+    store = rf.Store(tmp_path)
+    store.record_result("terminal", {}, True, time.time())
+    store.save(force=True)
     assert (tmp_path / "scores.json").exists()
-    # corrupt it
     (tmp_path / "scores.json").write_text("{not json")
-    s2 = rf.Store(tmp_path)
-    assert s2.tools == {}
-    # original renamed
+    second = rf.Store(tmp_path)
+    assert second.tools == {}
     assert any(p.name.startswith("scores.json.corrupt-") for p in tmp_path.iterdir())
 
 
 def test_own_tools_never_scored(rf, ctx):
     call(ctx, "rariflat_route", {"task": "x"}, result="ok")
-    assert "rariflat_route" not in rf._get_store().tools or rf._get_store().tools["rariflat_route"].get("uses", 0) == 0
+    assert "rariflat_route" not in rf._get_store().tools
 
 
 def test_args_none_or_non_dict(rf, ctx):
@@ -107,7 +98,37 @@ def test_args_none_or_non_dict(rf, ctx):
 
 def test_commands(rf, ctx):
     call(ctx, "terminal", {"cmd": "ls"})
-    cmd = ctx.commands["rariflat"]
-    assert "terminal" in cmd("")
-    assert "ON" in cmd("guard on") and "OFF" in cmd("guard off")
-    assert "cleared" in cmd("reset")
+    command = ctx.commands["rariflat"]
+    assert "terminal" in command("")
+    assert "ON" in command("guard on") and "OFF" in command("guard off")
+    assert "cleared" in command("reset")
+
+
+def test_guard_resets_after_success(rf, ctx, monkeypatch):
+    rf._get_store().set_guard(True)
+    monkeypatch.setenv("RARIFLAT_FAIL_STREAK", "2")
+    monkeypatch.setenv("RARIFLAT_COOLDOWN", "3600")
+    call(ctx, "terminal", {}, result="Error: first")
+    call(ctx, "terminal", {}, result="Error: second")
+    assert ctx.hooks["pre_tool_call"]("terminal", {})["action"] == "block"
+    ctx.hooks["post_tool_call"]("terminal", {}, "ok")
+    assert ctx.hooks["pre_tool_call"]("terminal", {}) is None
+
+
+def test_loop_detector_opt_in(rf, ctx, monkeypatch):
+    rf._get_store().set_guard(True)
+    monkeypatch.setenv("RARIFLAT_LOOP_REPEAT", "3")
+    monkeypatch.setenv("RARIFLAT_LOOP_WINDOW", "30")
+    assert ctx.hooks["pre_tool_call"]("browser", {"url": "https://example.com"}) is None
+    assert ctx.hooks["pre_tool_call"]("browser", {"url": "https://example.com"}) is None
+    assert ctx.hooks["pre_tool_call"]("browser", {"url": "https://example.com"})["action"] == "block"
+
+
+def test_event_emitter_is_optional(rf, ctx):
+    assert ctx.hooks["pre_tool_call"]("browser", {}) is None
+
+
+def test_status_is_json(rf, ctx):
+    result = json.loads(ctx.tools["rariflat_status"]({}))
+    assert result["guard_enabled"] is False
+    assert result["tracked_tools"] == 0
