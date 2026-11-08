@@ -59,7 +59,7 @@ def _safe_token_parts(value: Any) -> list[str]:
         parts = []
         for key, item in value.items():
             key_text = str(key)
-            if _SENSITIVE_KEY_RE.search(key_text.replace(" ", "_")):
+            if _SENSITIVE_KEY_RE.search(re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", key_text).replace(" ", "_")):
                 continue
             parts.append(key_text)
             parts.extend(_safe_token_parts(item))
