@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Rariflat — a local-first reliability and routing plugin for Hermes Agent.">
+  <title>Rariflat — Hermes Agent Plugin</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #0b1020;
+      color: #edf2ff;
+      font-family: system-ui, sans-serif;
+      line-height: 1.6;
+    }
+    main { max-width: 900px; margin: auto; padding: 64px 22px; }
+    .tag { color: #83e1c1; font-weight: 700; letter-spacing: 2px; }
+    h1 { font-size: clamp(42px, 8vw, 72px); line-height: 1.05; margin: 18px 0; }
+    h2 { margin-top: 42px; }
+    .muted { color: #aab6d0; }
+    .panel {
+      background: #151e33; border: 1px solid #293653;
+      border-radius: 16px; padding: 22px; margin: 18px 0;
+    }
+    .links { display: flex; flex-wrap: wrap; gap: 12px; margin: 26px 0; }
+    a {
+      color: #83e1c1; text-decoration: none; font-weight: 650;
+    }
+    .button {
+      display: inline-block; background: #83e1c1; color: #07151a;
+      padding: 12px 17px; border-radius: 9px;
+    }
+    code { color: #a9d9ff; overflow-wrap: anywhere; }
+    footer { margin-top: 55px; color: #8290aa; font-size: 14px; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="tag">HERMES AGENT · COMMUNITY PLUGIN</div>
+  <h1>Meet <span style="color:#83e1c1">Rariflat.</span></h1>
+  <p class="muted">
+    A local-first tool reliability and routing plugin designed to make
+    Hermes Agent workflows more observable, informed, and controlled.
+  </p>
+
+  <div class="links">
+    <a class="button" href="https://github.com/wadezigh96/rariflat-hermes">GitHub Repository</a>
+    <a href="https://github.com/NousResearch/hermes-agent/pull/151221">Catalog Pull Request</a>
+    <a href="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Rariflat_Hermes_Arrows-3Cd6FGgRXeyIvxGTiwbJ08xIYZzi3m.mp4">Demo Video</a>
+  </div>
+
+  <h2>What it does</h2>
+  <div class="panel">
+    <h3>Tool reliability tracking</h3>
+    <p class="muted">Tracks local tool-use outcomes to help make tool reliability more visible.</p>
+  </div>
+  <div class="panel">
+    <h3>Task-aware routing suggestions</h3>
+    <p class="muted">Suggests observed tools for a task using locally collected statistics.</p>
+  </div>
+  <div class="panel">
+    <h3>Opt-in execution guard</h3>
+    <p class="muted">The guard is off by default and blocks only tools explicitly listed by the user.</p>
+  </div>
+
+  <h2>Privacy by design</h2>
+  <div class="panel">
+    <p class="muted">
+      Local-only statistics are stored under
+      <code>$HERMES_HOME/plugin-data/rariflat/</code>.
+      No network calls, credentials, or subprocesses are required by the plugin.
+    </p>
+  </div>
+
+  <h2>Project status</h2>
+  <div class="panel">
+    <p><strong>Version:</strong> 1.2.0</p>
+    <p><strong>Hermes requirement:</strong> >= 0.21</p>
+    <p><strong>Validation:</strong> 50 tests passed in the reported local test run.</p>
+    <p><strong>Catalog submission:</strong> Pull request #151221 is open for review.</p>
+  </div>
+
+  <h2>Explore the project</h2>
+  <p class="muted">
+    Review the source code, installation instructions, tests, and catalog proposal
+    in the official project repositories.
+  </p>
+  <div class="links">
+    <a href="https://github.com/wadezigh96/rariflat-hermes">Plugin source</a>
+    <a href="https://github.com/NousResearch/hermes-agent/pull/151221">Hermes catalog PR</a>
+  </div>
+
+  <footer>
+    Rariflat · Community project for Hermes Agent · Version 1.2.0
+  </footer>
+</main>
+</body>
+</html>
