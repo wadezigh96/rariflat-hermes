@@ -81,6 +81,28 @@ def _tokens(value: Any) -> set[str]:
     return {t for t in re.findall(r"[a-z0-9_+-]{2,}", text.lower()) if t not in STOP_WORDS}
 
 
+def _safe_fingerprint_value(value: Any) -> Any:
+    """Build a stable fingerprint without credential-like fields or inline secrets."""
+    if isinstance(value, dict):
+        safe = {}
+        for key, item in value.items():
+            key_text = str(key)
+            normalized = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", key_text).replace(" ", "_")
+            if _SENSITIVE_KEY_RE.search(normalized):
+                continue
+            safe[key_text] = _safe_fingerprint_value(item)
+        return safe
+    if isinstance(value, (list, tuple)):
+        return [_safe_fingerprint_value(item) for item in value]
+    if isinstance(value, str):
+        value = _INLINE_SECRET_RE.sub(r"\\1\\2[REDACTED]", value)
+        value = _BEARER_RE.sub("Bearer [REDACTED]", value)
+        return _JWT_RE.sub("[REDACTED]", value)
+    if value is None or isinstance(value, (int, float, bool)):
+        return value
+    return str(value)
+
+
 def _get_character(tool_name: str) -> dict:
     for token in re.split(r"[^a-z0-9]+", str(tool_name or "").lower()):
         if token in CHARACTERS and token != "default":
@@ -239,9 +261,9 @@ class Store:
             return
         now = float(timestamp if timestamp is not None else time.time())
         with self._lock:
-            item = self.tools.setdefault(tool_name, {"rarity": 50, "restraint": 50, "uses": 0, "successes": 0, "fail_streak": 0, "tokens": [], "last_used": 0, "last_failure": 0})
+            item = self.tools.setdefault(tool_name, {"uses": 0, "successes": 0, "repeated_calls": 0, "fail_streak": 0, "tokens": [], "last_used": 0, "last_failure": 0})
             fingerprint_source = json.dumps(
-                args if isinstance(args, (dict, list, str, int, float, bool)) else str(args),
+                _safe_fingerprint_value(args),
                 sort_keys=True, default=str,
             )
             fingerprint = hashlib.sha256(fingerprint_source.encode("utf-8")).hexdigest()
