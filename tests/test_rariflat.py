@@ -172,12 +172,46 @@ def test_loop_cache_prunes_expired_signatures_and_is_bounded(rf, monkeypatch):
     store.loop_detected("browser", {"url": "https://new.example/"}, now=200.0)
     assert len(store._recent_calls) == 1
 
-def test_rarity_changes_ranking(rf):
-    common = {"tokens": ["python", "asyncio"], "uses": 100, "successes": 90, "repeated_calls": 0}
-    rare = {"tokens": ["python", "asyncio"], "uses": 1, "successes": 1, "repeated_calls": 0}
-    ranked = rf._rank_tools("python asyncio", {"common_tool": common, "rare_tool": rare})
-    assert ranked[0]["skill"] == "rare_tool"
-    assert ranked[0]["rarity"] > ranked[1]["rarity"]
+def test_rarity_changes_ranking(rf, monkeypatch):
+    common = {
+        "tokens": ["python", "asyncio"],
+        "uses": 100,
+        "successes": 100,
+        "repeated_calls": 0,
+    }
+    rare = {
+        "tokens": ["python", "asyncio"],
+        "uses": 1,
+        "successes": 1,
+        "repeated_calls": 0,
+    }
+    tools = {"common_tool": common, "rare_tool": rare}
+
+    # Hold restraint constant so rarity is the only differing score factor.
+    monkeypatch.setattr(
+        rf,
+        "_recent_usage_metrics",
+        lambda data: {"recent_uses": 0, "repeated_calls_30s": 0},
+    )
+
+    ranked_with_rarity = rf._rank_tools("python asyncio", tools)
+    assert ranked_with_rarity[0]["skill"] == "rare_tool"
+
+    common_row = next(row for row in ranked_with_rarity if row["skill"] == "common_tool")
+    rare_row = next(row for row in ranked_with_rarity if row["skill"] == "rare_tool")
+    for factor in ("task_fit", "reliability", "restraint"):
+        assert common_row["factors"][factor] == rare_row["factors"][factor]
+
+    # Flatten rarity for this comparison: without its contribution,
+    # the usage-count tie-breaker should put common_tool first.
+    class FlatMath:
+        @staticmethod
+        def log2(value):
+            return 0
+
+    monkeypatch.setattr(rf, "math", FlatMath)
+    ranked_without_rarity = rf._rank_tools("python asyncio", tools)
+    assert ranked_without_rarity[0]["skill"] == "common_tool"
 
 
 def test_restraint_changes_ranking(rf):
