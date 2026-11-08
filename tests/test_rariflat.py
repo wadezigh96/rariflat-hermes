@@ -181,11 +181,25 @@ def test_rarity_changes_ranking(rf):
 
 
 def test_restraint_changes_ranking(rf):
-    restrained = {"tokens": ["python", "asyncio"], "uses": 10, "successes": 10, "repeated_calls": 0}
-    repetitive = {"tokens": ["python", "asyncio"], "uses": 10, "successes": 10, "repeated_calls": 8}
+    now = time.time()
+    restrained = {
+        "tokens": ["python", "asyncio"], "uses": 10, "successes": 10,
+        "recent_events": [
+            {"timestamp": now - 9 + i, "fingerprint": f"unique-{i}"}
+            for i in range(10)
+        ],
+    }
+    repetitive = {
+        "tokens": ["python", "asyncio"], "uses": 10, "successes": 10,
+        "recent_events": [
+            {"timestamp": now - 9 + i, "fingerprint": "same-call" if i < 9 else "other-call"}
+            for i in range(10)
+        ],
+    }
     ranked = rf._rank_tools("python asyncio", {"restrained_tool": restrained, "repetitive_tool": repetitive})
     assert ranked[0]["skill"] == "restrained_tool"
-    assert ranked[0]["restraint"] > ranked[1]["restraint"]
+    assert ranked[0]["restraint"] == 100.0
+    assert ranked[1]["restraint"] == 20.0
 
 
 def test_repeated_call_metric_is_learned(rf, tmp_path):
@@ -231,3 +245,76 @@ def test_natural_language_documentation_task_has_nonzero_task_fit(rf, ctx):
     assert any(item["task_match_score"] > 0 for item in out["recommended"])
     assert out["best"] == "web_search"
 
+
+
+
+def test_recent_restraint_uses_rolling_window(rf, tmp_path, monkeypatch):
+    store = rf.Store(tmp_path)
+    args = {"query": "same"}
+    store.record_result("web_search", args, True, timestamp=100)
+    store.record_result("web_search", args, True, timestamp=105)
+    store.record_result("web_search", args, True, timestamp=110)
+    metrics = rf._recent_usage_metrics(store.tools["web_search"], now=111, window=30)
+    assert metrics == {"recent_uses": 3, "repeated_calls_30s": 2}
+    monkeypatch.setattr(rf.time, "time", lambda: 111)
+    ranked = rf._rank_tools("query same", {"web_search": store.tools["web_search"]})
+    assert ranked[0]["restraint"] == 33.33
+    metrics = rf._recent_usage_metrics(store.tools["web_search"], now=141, window=30)
+    assert metrics == {"recent_uses": 0, "repeated_calls_30s": 0}
+
+
+def test_recent_restraint_ignores_different_args(rf, tmp_path):
+    store = rf.Store(tmp_path)
+    store.record_result("web_search", {"query": "one"}, True, timestamp=100)
+    store.record_result("web_search", {"query": "two"}, True, timestamp=105)
+    metrics = rf._recent_usage_metrics(store.tools["web_search"], now=106)
+    assert metrics == {"recent_uses": 2, "repeated_calls_30s": 0}
+
+
+def test_usage_timestamps_and_failures_are_persisted(rf, tmp_path):
+    store = rf.Store(tmp_path)
+    store.record_result("web_search", {"query": "ok"}, True, timestamp=100)
+    store.record_result("web_search", {"query": "bad"}, False, timestamp=110)
+    item = store.tools["web_search"]
+    assert item["uses"] == 2
+    assert item["successes"] == 1 and item["failures"] == 1
+    assert item["first_used"] == 100 and item["last_used"] == 110
+    assert item["last_success"] == 100 and item["last_failure"] == 110
+    store.save(force=True)
+    reloaded = rf.Store(tmp_path)
+    assert reloaded.tools["web_search"]["last_used"] == 110
+
+
+def test_runtime_session_count_and_timestamps_persist(rf, tmp_path):
+    store = rf.Store(tmp_path)
+    store.record_session_start(timestamp=100)
+    store.record_session_start(timestamp=200)
+    reloaded = rf.Store(tmp_path)
+    assert reloaded.sessions_started == 2
+    assert reloaded.first_session_at == 100
+    assert reloaded.last_session_at == 200
+
+ 
+def test_legacy_repeat_totals_do_not_masquerade_as_live_window(rf, tmp_path):
+    path = tmp_path / "scores.json"
+    path.write_text(json.dumps({"tools": {
+        "legacy_tool": {"uses": 12, "successes": 10, "repeated_calls": 7, "tokens": ["legacy"]}
+    }}), encoding="utf-8")
+    store = rf.Store(tmp_path)
+    item = store.tools["legacy_tool"]
+    assert item["repeated_calls_total"] == 7
+    assert item["repeated_calls"] == 0
+    assert item["recent_events"] == []
+    metrics = rf._recent_usage_metrics(item, now=500, window=30)
+    assert metrics == {"recent_uses": 0, "repeated_calls_30s": 0}
+    ranked = rf._rank_tools("legacy", store.tools)
+    assert ranked[0]["restraint"] == 100.0
+
+
+def test_status_activity_includes_more_than_ten_tools(rf, ctx):
+    store = rf._get_store()
+    for i in range(12):
+        store.record_result(f"tool_{i}", {"arg": i}, True, timestamp=100 + i)
+    status = json.loads(ctx.tools["rariflat_status"]({}))
+    assert len(status["tools_activity"]) == 12
+    assert {item["name"] for item in status["tools_activity"]} == {f"tool_{i}" for i in range(12)}

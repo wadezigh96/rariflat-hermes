@@ -167,6 +167,29 @@ def judge_result(result: Any) -> bool:
     return not any(lowered.startswith(prefix) for prefix in FAILURE_PREFIXES)
 
 
+def _recent_usage_metrics(data: dict, now: float | None = None, window: int = 30) -> dict:
+    """Count calls and duplicate fingerprints in a rolling time window."""
+    stamp = float(now if now is not None else time.time())
+    events = data.get("recent_events", [])
+    if not isinstance(events, list):
+        events = []
+    fresh = [
+        event for event in events
+        if isinstance(event, dict)
+        and isinstance(event.get("timestamp"), (int, float))
+        and 0 <= stamp - float(event["timestamp"]) <= window
+    ]
+    seen: set[str] = set()
+    repeats = 0
+    for event in sorted(fresh, key=lambda item: float(item["timestamp"])):
+        fingerprint = str(event.get("fingerprint", ""))
+        if fingerprint and fingerprint in seen:
+            repeats += 1
+        if fingerprint:
+            seen.add(fingerprint)
+    return {"recent_uses": len(fresh), "repeated_calls_30s": repeats}
+
+
 def _rank_tools(task: str, tools: dict[str, dict]) -> list[dict]:
     """Rank tools using measurable task fit, reliability, usage rarity and restraint."""
     task_tokens = _tokens(task)
@@ -180,9 +203,13 @@ def _rank_tools(task: str, tools: dict[str, dict]) -> list[dict]:
         reliability = (successes / uses) * 100 if uses else 50.0
         # Rarity is derived from observed call frequency, not a manually tuned counter.
         rarity = 100.0 / (1.0 + math.log2(uses + 1))
-        # Restraint penalizes repeated identical calls within the 30-second observation window.
-        repeated_calls = max(0, min(uses, int(data.get("repeated_calls", 0))))
-        restraint = (1.0 - repeated_calls / uses) * 100 if uses else 100.0
+        # Prefer a live rolling window; retain legacy counters for old score files/tests.
+        recent = _recent_usage_metrics(data)
+        recent_uses = recent["recent_uses"]
+        repeated_calls = recent["repeated_calls_30s"]
+        # Legacy records are migrated on load to an empty live window. Lifetime
+        # repeat totals remain available separately and never contaminate live restraint.
+        restraint = (1.0 - repeated_calls / recent_uses) * 100 if recent_uses else 100.0
         score = match * 0.40 + reliability * 0.25 + rarity * 0.20 + restraint * 0.15
         ranked.append({
             "skill": name,
@@ -194,11 +221,15 @@ def _rank_tools(task: str, tools: dict[str, dict]) -> list[dict]:
             "task_match_score": round(match, 2),
             "uses": uses,
             "repeated_calls": repeated_calls,
+            "repeated_calls_30s": repeated_calls,
+            "recent_uses": recent_uses,
+            "first_used": data.get("first_used"),
+            "last_used": data.get("last_used"),
             "reason": (
                 f"Task fit {match:.1f}/100 (overlap {overlap}); "
                 f"reliability {reliability:.1f}/100 ({successes}/{uses} successes); "
                 f"rarity {rarity:.1f}/100 (observed uses: {uses}); "
-                f"restraint {restraint:.1f}/100 ({repeated_calls} repeated calls in 30s). "
+                f"restraint {restraint:.1f}/100 ({repeated_calls} repeated calls among {recent_uses} recent uses in 30s). "
                 "Weighted score: 40% task fit, 25% reliability, "
                 "20% rarity, 15% restraint."
             ),
@@ -223,6 +254,9 @@ class Store:
         self._lock = threading.RLock()
         self._last_save = 0.0
         self._recent_calls: dict[str, list[float]] = {}
+        self.sessions_started = 0
+        self.first_session_at: float | None = None
+        self.last_session_at: float | None = None
         self._load()
 
     def _load(self) -> None:
@@ -234,6 +268,17 @@ class Store:
                 raw = data.get("tools", data) if isinstance(data, dict) else {}
                 if isinstance(raw, dict):
                     self.tools = {str(k): v for k, v in raw.items() if isinstance(v, dict)}
+                    # Legacy score files have lifetime repeat counters but no timestamps.
+                    # Preserve those totals, but never mislabel them as repeats in the live window.
+                    for item in self.tools.values():
+                        if "recent_events" not in item:
+                            item["repeated_calls_total"] = int(item.get("repeated_calls_total", item.get("repeated_calls", 0)))
+                            item["repeated_calls"] = 0
+                            item["recent_events"] = []
+                if isinstance(data, dict) and "tools" in data:
+                    self.sessions_started = max(0, int(data.get("sessions_started", 0)))
+                    self.first_session_at = data.get("first_session_at")
+                    self.last_session_at = data.get("last_session_at")
             except (OSError, ValueError, TypeError) as exc:
                 damaged = self.path.with_name(f"scores.json.corrupt-{int(time.time() * 1000)}")
                 try:
@@ -241,6 +286,16 @@ class Store:
                     logger.warning("Rariflat quarantined corrupt score data: %s", exc)
                 except OSError:
                     logger.warning("Rariflat could not quarantine corrupt score data: %s", exc)
+
+    def record_session_start(self, timestamp: float | None = None) -> None:
+        """Record a plugin runtime start; this is not an account-login signal."""
+        now = float(timestamp if timestamp is not None else time.time())
+        with self._lock:
+            self.sessions_started += 1
+            if self.first_session_at is None:
+                self.first_session_at = now
+            self.last_session_at = now
+        self.save(force=True)
 
     def set_guard(self, enabled: bool) -> None:
         with self._lock:
@@ -291,13 +346,28 @@ class Store:
             previous_used = float(item.get("last_used", 0))
             if item.get("last_args_fingerprint") == fingerprint and 0 <= now - previous_used <= 30:
                 item["repeated_calls"] = int(item.get("repeated_calls", 0)) + 1
+            item["repeated_calls_total"] = int(item.get("repeated_calls_total", item.get("repeated_calls", 0)))
             item["last_args_fingerprint"] = fingerprint
             item["uses"] = int(item.get("uses", 0)) + 1
+            item["first_used"] = item.get("first_used") or now
             item["last_used"] = now
+            events = item.get("recent_events", [])
+            if not isinstance(events, list):
+                events = []
+            events = [
+                event for event in events
+                if isinstance(event, dict)
+                and isinstance(event.get("timestamp"), (int, float))
+                and 0 <= now - float(event["timestamp"]) <= 30
+            ]
+            events.append({"timestamp": now, "fingerprint": fingerprint})
+            item["recent_events"] = events[-256:]
             if success:
                 item["successes"] = int(item.get("successes", 0)) + 1
                 item["fail_streak"] = 0
+                item["last_success"] = now
             else:
+                item["failures"] = int(item.get("failures", 0)) + 1
                 item["fail_streak"] = int(item.get("fail_streak", 0)) + 1
                 item["last_failure"] = now
             item["tokens"] = sorted(set(item.get("tokens", [])) | _tokens(args))[:160]
@@ -311,7 +381,12 @@ class Store:
             tmp_name = None
             try:
                 self.data_dir.mkdir(parents=True, exist_ok=True)
-                payload = json.dumps({"tools": self.tools}, ensure_ascii=False, indent=2, sort_keys=True)
+                payload = json.dumps({
+                    "tools": self.tools,
+                    "sessions_started": self.sessions_started,
+                    "first_session_at": self.first_session_at,
+                    "last_session_at": self.last_session_at,
+                }, ensure_ascii=False, indent=2, sort_keys=True)
                 fd, tmp_name = tempfile.mkstemp(prefix=".scores-", suffix=".tmp", dir=str(self.data_dir))
                 with os.fdopen(fd, "w", encoding="utf-8") as handle:
                     handle.write(payload)
@@ -375,6 +450,7 @@ def _is_own_tool(tool_name: str) -> bool:
 
 def register(ctx):
     store = _get_store()
+    store.record_session_start()
 
     def route_skills(args, **kwargs):
         args = args if isinstance(args, dict) else {}
@@ -396,9 +472,25 @@ def register(ctx):
     def get_status(args=None, **kwargs):
         top = _rank_tools("", store.tools)[:5]
         return json.dumps({"characters_active": True, "tracked_tools": len(store.tools), "guard_enabled": store.guard_enabled,
+                           "sessions_started": store.sessions_started,
+                           "first_session_at": store.first_session_at,
+                           "last_session_at": store.last_session_at,
                            "top_skills": [{"name": d["skill"], "rarity": d["rarity"], "restraint": d["restraint"],
                                            "reliability": d["reliability"], "uses": d["uses"],
-                                           "repeated_calls": d["repeated_calls"]} for d in top]})
+                                           "successes": store.tools.get(d["skill"], {}).get("successes", 0),
+                                           "failures": store.tools.get(d["skill"], {}).get("failures", 0),
+                                           "first_used": d.get("first_used"), "last_used": d.get("last_used"),
+                                           "recent_uses": d["recent_uses"],
+                                           "repeated_calls_30s": d["repeated_calls_30s"],
+                                           "repeated_calls_total": store.tools.get(d["skill"], {}).get("repeated_calls_total", store.tools.get(d["skill"], {}).get("repeated_calls", 0))}
+                                          for d in top],
+                           "tools_activity": [
+                               {"name": name, "uses": data.get("uses", 0),
+                                "successes": data.get("successes", 0), "failures": data.get("failures", 0),
+                                "first_used": data.get("first_used"), "last_used": data.get("last_used"),
+                                **_recent_usage_metrics(data)}
+                               for name, data in sorted(store.tools.items(), key=lambda pair: pair[1].get("uses", 0), reverse=True)
+                           ]})
 
     def guard_check(args, **kwargs):
         args = args if isinstance(args, dict) else {}
@@ -474,7 +566,7 @@ def register(ctx):
         if not store.tools:
             lines.append("No tools tracked yet. Make some calls!")
         else:
-            for i, (name, data) in enumerate(sorted(store.tools.items(), key=lambda x: x[1].get("uses", 0), reverse=True)[:10], 1):
+            for i, (name, data) in enumerate(sorted(store.tools.items(), key=lambda x: x[1].get("uses", 0), reverse=True), 1):
                 lines.append(f"{i}. {name} · success {data.get('successes', 0)}/{data.get('uses', 0)} · fail streak {data.get('fail_streak', 0)}")
         return "\n".join(lines)
 
