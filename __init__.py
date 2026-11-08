@@ -209,6 +209,7 @@ def _rank_tools(task: str, tools: dict[str, dict]) -> list[dict]:
         repeated_calls = recent["repeated_calls_30s"]
         if "recent_events" not in data:
             repeated_calls = max(0, min(uses, int(data.get("repeated_calls", 0))))
+            recent_uses = uses
             restraint = (1.0 - repeated_calls / uses) * 100 if uses else 100.0
         else:
             restraint = (1.0 - repeated_calls / recent_uses) * 100 if recent_uses else 100.0
@@ -478,7 +479,14 @@ def register(ctx):
                                            "recent_uses": d["recent_uses"],
                                            "repeated_calls_30s": d["repeated_calls_30s"],
                                            "repeated_calls_total": store.tools.get(d["skill"], {}).get("repeated_calls_total", store.tools.get(d["skill"], {}).get("repeated_calls", 0))}
-                                          for d in top]})
+                                          for d in top],
+                           "tools_activity": [
+                               {"name": name, "uses": data.get("uses", 0),
+                                "successes": data.get("successes", 0), "failures": data.get("failures", 0),
+                                "first_used": data.get("first_used"), "last_used": data.get("last_used"),
+                                **_recent_usage_metrics(data)}
+                               for name, data in sorted(store.tools.items(), key=lambda pair: pair[1].get("uses", 0), reverse=True)
+                           ]})
 
     def guard_check(args, **kwargs):
         args = args if isinstance(args, dict) else {}
