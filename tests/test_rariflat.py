@@ -171,3 +171,34 @@ def test_loop_cache_prunes_expired_signatures_and_is_bounded(rf, monkeypatch):
     assert len(store._recent_calls) <= 1024
     store.loop_detected("browser", {"url": "https://new.example/"}, now=200.0)
     assert len(store._recent_calls) == 1
+
+def test_rarity_changes_ranking(rf):
+    base = {
+        "common_tool": {"tokens": ["python", "asyncio"], "uses": 10, "successes": 8, "rarity": 10, "restraint": 50},
+        "rare_tool": {"tokens": ["python", "asyncio"], "uses": 10, "successes": 8, "rarity": 90, "restraint": 50},
+    }
+    assert rf._rank_tools("python asyncio", base)[0]["skill"] == "rare_tool"
+    base["rare_tool"]["rarity"] = 0
+    base["common_tool"]["rarity"] = 100
+    assert rf._rank_tools("python asyncio", base)[0]["skill"] == "common_tool"
+
+
+def test_restraint_changes_ranking(rf):
+    base = {
+        "restrained_tool": {"tokens": ["python", "asyncio"], "uses": 10, "successes": 8, "rarity": 50, "restraint": 90},
+        "unrestrained_tool": {"tokens": ["python", "asyncio"], "uses": 10, "successes": 8, "rarity": 50, "restraint": 10},
+    }
+    assert rf._rank_tools("python asyncio", base)[0]["skill"] == "restrained_tool"
+    base["restrained_tool"]["restraint"] = 0
+    base["unrestrained_tool"]["restraint"] = 100
+    assert rf._rank_tools("python asyncio", base)[0]["skill"] == "unrestrained_tool"
+
+
+def test_route_explains_all_ranking_factors_and_router_scope(rf, ctx):
+    call(ctx, "web_search", {"query": "python asyncio tutorial"})
+    out = json.loads(ctx.tools["rariflat_route"]({"task": "python asyncio tutorial"}))
+    assert out["router_type"] == "tool_skill_recommender"
+    assert out["dispatches_to_agent"] is False
+    item = out["recommended"][0]
+    assert {"rarity", "restraint", "reliability", "reason", "factors"} <= item.keys()
+    assert all(key in item["reason"] for key in ("rarity", "restraint", "reliability"))

@@ -1,6 +1,7 @@
 // Rariflat Desktop pane — receives the official Hermes plugin event bridge.
 import { host, haptic } from '@hermes/plugin-sdk'
 import { useState, useEffect } from 'react'
+import { normalizeToolEvent } from './event-contract.mjs'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
 const CHARACTERS = {
@@ -30,16 +31,13 @@ function Pane() {
   const [history, setHistory] = useState([])
   useEffect(() => {
     const unsubscribe = host.onEvent?.('plugin.rariflat.tool', (event) => {
-      const payload = event?.payload || event || {}
-      const phase = payload.phase || 'done'
-      const tool = payload.tool || 'unknown tool'
-      const success = payload.success !== false
+      const { phase, tool, success, reason, hapticType } = normalizeToolEvent(event)
       const item = phase === 'blocked'
-        ? { ...CHARACTERS.error, tool, success: false, phase, reason: payload.reason || '' }
-        : { ...getChar(tool), tool, success, phase, reason: payload.reason || '' }
+        ? { ...CHARACTERS.error, tool, success: false, phase, reason }
+        : { ...getChar(tool), tool, success, phase, reason }
       setLast(item)
       setHistory((items) => [item, ...items].slice(0, 10))
-      haptic(phase === 'blocked' ? 'warning' : 'tap')
+      haptic(hapticType)
     })
     return () => unsubscribe?.()
   }, [])
