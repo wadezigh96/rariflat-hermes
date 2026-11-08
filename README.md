@@ -51,8 +51,8 @@ From the Rariflat plugin directory, run:
 
 ```bash
 python -m pytest -q tests
-hermes plugins validate .
-hermes doctor
+hermes plugins validate . --install-deps
+hermes plugins doctor .
 ```
 
 The test suite checks ranking, measured rarity/restraint behavior, safe fingerprinting, guard behavior, and other plugin logic. Validation against an installed Hermes CLI checks compatibility with that installation. A passing unit test suite alone does not prove that a particular Desktop runtime is connected.
