@@ -40,7 +40,7 @@ Each recommendation includes the measured factor values, use/repeat counts, and 
 Until the official catalog PR is accepted and published, install the reviewed source revision directly:
 
 ```bash
-hermes plugins install wadezigh96/rariflat-hermes --ref 6bbcfa1d373cdbdd35f4ac2d8d87590712bcc875 --enable
+hermes plugins install wadezigh96/rariflat-hermes --ref 950796253faa2d9b69c3c2d1256924d18ae03e9c --enable
 ```
 
 The `--ref` value is a full immutable 40-character commit SHA. The command uses Hermes' documented Git installation flow; `--enable` skips the enable prompt. Review and accept any dependency-consent prompt shown by Hermes. After the catalog listing is accepted, users can install by catalog name with `hermes plugins install rariflat --enable`.
@@ -158,10 +158,11 @@ Resetting removes the local learned history, so recommendations start learning a
 python -m pytest -q tests
 node --test tests/desktop_event_contract.test.mjs
 git diff --check
-hermes plugins validate .
+hermes plugins validate . --install-deps
+hermes plugins doctor .
 ```
 
-Run `hermes doctor` in an installed Hermes environment as an additional host diagnostic. CI tests and manifest validation are useful checks, but do not replace a manual end-to-end test on the target Hermes Desktop version.
+Run `hermes plugins doctor .` in the plugin directory for Hermes runtime-contract diagnostics. CI tests and manifest validation are useful checks, but do not replace a manual end-to-end test on the target Hermes Desktop version.
 
 ## Project scope
 
