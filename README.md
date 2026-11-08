@@ -10,6 +10,7 @@ It is designed to make tool activity easier to understand, help operators compar
 |---|---|---|
 | Tool calls are hard to follow in a busy agent session | Character reactions and an optional Desktop pane show tool activity and outcomes | The pane depends on Hermes Desktop and the supported plugin event bridge |
 | Operators do not know which previously used tool may fit a task | `rariflat_route` ranks observed tools using task fit, reliability, rarity, and restraint, with measured values and an explanation | It recommends only; it does not dispatch work to agents, call the recommended tool, or guarantee the best result |
+| Recommendation scores can be mistaken for certainty | The Desktop decision card shows the top choice, factor scores, and observed call counts; fewer than five calls are labeled as limited history | The threshold is an evidence cue, not a calibrated confidence estimate; new installations have little or no history |
 | Reliability is difficult to compare from memory | Local success/use counts and failure streaks provide a lightweight evidence trail | Scores reflect only activity observed since Rariflat was installed and can be reset |
 | Repeated identical calls can waste time or tokens | Optional loop detection can block a configured repeated-call pattern | Disabled unless explicitly enabled and configured; tune thresholds for the workflow |
 | Repeated failures may cause an agent to retry without noticing a pattern | Optional failure-streak guard can block after a configured number of consecutive failures | Disabled by default; it is a simple guard, not a replacement for application-level retries, budgets, or human review |
@@ -23,7 +24,7 @@ The advisory router uses a weighted score:
 - **Rarity — 20%:** less frequently used tools receive a higher rarity score.
 - **Restraint — 15%:** fewer repeated identical calls receive a higher restraint score.
 
-Each recommendation includes the measured factor values, use/repeat counts, and a human-readable reason. New installations have little or no history, so recommendations become more informative as the user works.
+Each recommendation includes the measured factor values, use/repeat counts, and a human-readable reason. The optional Desktop decision card shows the top recommendation and alternatives using aggregate fields only; its route event omits raw task text, tool arguments, and the reason string. It labels tools with fewer than five observed calls as limited history; this is not a statistical confidence claim. New installations have little or no history, so recommendations become more informative as the user works.
 
 **Router boundary:** `rariflat_route` returns ranked tool/skill names and `dispatches_to_agent: false`. It does not route a task to another agent, invoke tools, or execute a plan.
 
@@ -128,7 +129,7 @@ The `/rariflat guard on/off` choice is saved locally and survives restarts; an e
 
 ### 6. Optional Desktop pane
 
-The Desktop UI is provided in `desktop/plugin.js` and listens for the plugin event bridge. It displays the latest tool activity and a short recent history. It requires a compatible Hermes Desktop runtime; command-line tests of the event contract do not by themselves prove live Desktop integration.
+The Desktop UI is provided in `desktop/plugin.js` and listens for the plugin event bridge. It displays the latest tool activity, a short recent history, and a route decision card when `rariflat_route` is called. The card shows the top recommendation, alternatives, score factors, and evidence counts. It requires a compatible Hermes Desktop runtime; command-line tests of the event contract do not by themselves prove live Desktop integration.
 
 ## Data handling and reset
 

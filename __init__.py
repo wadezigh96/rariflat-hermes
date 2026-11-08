@@ -22,6 +22,10 @@ if _VERBOSE:
 OWN_TOOLS = {"rariflat_route", "rariflat_status", "rariflat_guard"}
 STOP_WORDS = {"a", "an", "and", "are", "as", "at", "by", "for", "from", "how", "i", "in", "into", "is", "it", "of", "on", "or", "please", "the", "to", "use", "with", "check", "find", "do", "this", "that", "me", "my"}
 FAILURE_PREFIXES = ("error:", "error ", "failed:", "failed ", "failure:", "failure ", "command not found", "no such file or directory", "permission denied", "traceback (most recent call last)", "exception:", "timed out", "timeout:")
+_ROUTE_WEIGHTS = {"task_fit": 0.40, "reliability": 0.25, "rarity": 0.20, "restraint": 0.15}
+_MIN_ROUTE_OBSERVATIONS = 5
+_MAX_ROUTE_EVENT_RECOMMENDATIONS = 3
+_MAX_ROUTE_EVENT_COUNT = 1_000_000
 
 CHARACTERS = {
     "web": {"name": "Owl", "emoji": "🦉", "awaken": ["scans the horizon"], "success": ["knowledge found"], "fail": ["the trail goes cold"]},
@@ -215,7 +219,13 @@ def _rank_tools(task: str, tools: dict[str, dict]) -> list[dict]:
         # Legacy records are migrated on load to an empty live window. Lifetime
         # repeat totals remain available separately and never contaminate live restraint.
         restraint = (1.0 - repeated_calls / recent_uses) * 100 if recent_uses else 100.0
-        score = match * 0.40 + reliability * 0.25 + rarity * 0.20 + restraint * 0.15
+        factor_values = {
+            "task_fit": match,
+            "reliability": reliability,
+            "rarity": rarity,
+            "restraint": restraint,
+        }
+        score = sum(factor_values[factor] * weight for factor, weight in _ROUTE_WEIGHTS.items())
         ranked.append({
             "skill": name,
             "score": round(score, 2),
@@ -225,6 +235,8 @@ def _rank_tools(task: str, tools: dict[str, dict]) -> list[dict]:
             "task_match": overlap,
             "task_match_score": round(match, 2),
             "uses": uses,
+            "successes": successes,
+            "failures": uses - successes,
             "repeated_calls": repeated_calls,
             "repeated_calls_30s": repeated_calls,
             "recent_uses": recent_uses,
@@ -439,6 +451,63 @@ def _emit(phase: str, tool: str, success: bool | None = None, reason: str = "") 
         logger.debug("Rariflat desktop event unavailable: %s", exc)
 
 
+def _route_event_payload(recommended: list[dict]) -> dict:
+    """Project route results to a privacy-safe Desktop summary; never include task text or reasons."""
+    def percentage(value: Any) -> float:
+        try:
+            number = float(value)
+            return round(max(0.0, min(100.0, number)), 2) if math.isfinite(number) else 0.0
+        except (TypeError, ValueError):
+            return 0.0
+
+    def raw_count(value: Any) -> int:
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError, OverflowError):
+            return 0
+
+    def count(value: Any) -> int:
+        return min(_MAX_ROUTE_EVENT_COUNT, raw_count(value))
+
+    rows = []
+    for item in recommended[:_MAX_ROUTE_EVENT_RECOMMENDATIONS]:
+        if not isinstance(item, dict):
+            continue
+        factors = item.get("factors") if isinstance(item.get("factors"), dict) else {}
+        skill = "".join(char for char in str(item.get("skill") or "")[:80] if char.isprintable()).strip()
+        if not skill:
+            continue
+        raw_uses = raw_count(item.get("uses"))
+        raw_successes = raw_count(item.get("successes"))
+        raw_failures = raw_count(item.get("failures"))
+        uses = count(raw_uses)
+        successes = min(uses, count(raw_successes))
+        failures = uses - successes
+        rows.append({
+            "skill": skill,
+            "score": percentage(item.get("score")),
+            "uses": uses,
+            "successes": successes,
+            "failures": failures,
+            "counts_capped": any(value > _MAX_ROUTE_EVENT_COUNT for value in (raw_uses, raw_successes, raw_failures)),
+            "factors": {factor: percentage(factors.get(factor)) for factor in _ROUTE_WEIGHTS},
+        })
+    return {
+        "recommended": rows,
+        "weights": {factor: round(weight * 100) for factor, weight in _ROUTE_WEIGHTS.items()},
+        "minimum_observations": _MIN_ROUTE_OBSERVATIONS,
+    }
+
+
+def _emit_route(recommended: list[dict]) -> None:
+    """Send only aggregate route metadata to the optional local Desktop pane."""
+    try:
+        from hermes_cli.plugin_events import broadcast_plugin_event
+        broadcast_plugin_event("rariflat", "route", _route_event_payload(recommended))
+    except Exception as exc:
+        logger.debug("Rariflat Desktop route event unavailable: %s", exc)
+
+
 def _guard_threshold() -> int:
     try:
         return max(1, min(100, int(os.getenv("RARIFLAT_FAIL_STREAK", "3"))))
@@ -466,6 +535,7 @@ def register(ctx):
         task = str(args.get("task") or "").strip()
         ranked = _rank_tools(task, store.tools)
         recommended = ranked[:5]
+        _emit_route(recommended)
         best = recommended[0]["skill"] if recommended else None
         return json.dumps({
             "router_type": "tool_skill_recommender",
