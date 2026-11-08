@@ -205,3 +205,12 @@ def test_route_explains_all_ranking_factors_and_router_scope(rf, ctx):
     item = out["recommended"][0]
     assert {"rarity", "restraint", "reliability", "reason", "factors"} <= item.keys()
     assert all(key in item["reason"] for key in ("rarity", "restraint", "reliability"))
+
+
+def test_repeated_call_fingerprint_excludes_credentials(rf, tmp_path):
+    store = rf.Store(tmp_path)
+    store.record_result("api_call", {"query": "weather", "api_key": "first-secret"}, True, timestamp=100)
+    first = store.tools["api_call"]["last_args_fingerprint"]
+    store.record_result("api_call", {"query": "weather", "api_key": "second-secret"}, True, timestamp=110)
+    assert store.tools["api_call"]["last_args_fingerprint"] == first
+    assert store.tools["api_call"]["repeated_calls"] == 1
