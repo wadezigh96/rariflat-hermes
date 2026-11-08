@@ -34,7 +34,7 @@ function Pane() {
       const { phase, tool, success, reason, hapticType } = normalizeToolEvent(event)
       const item = phase === 'blocked'
         ? { ...CHARACTERS.error, tool, success: false, phase, reason }
-        : { ...getChar(tool), tool, success, phase, reason: payload.reason || '' }
+        : { ...getChar(tool), tool, success, phase, reason }
       setLast(item)
       setHistory((items) => [item, ...items].slice(0, 10))
       haptic(hapticType)
