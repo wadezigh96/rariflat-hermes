@@ -123,6 +123,47 @@ def judge_result(result: Any) -> bool:
     return not any(lowered.startswith(prefix) for prefix in FAILURE_PREFIXES)
 
 
+def _rank_tools(task: str, tools: dict[str, dict]) -> list[dict]:
+    """Rank tools using task fit, reliability, rarity, and restraint (0–100)."""
+    task_tokens = _tokens(task)
+    ranked = []
+    for name, data in tools.items():
+        learned = set(data.get("tokens", [])) | _tokens(name)
+        overlap = len(task_tokens & learned)
+        match = (overlap / max(1, len(task_tokens))) * 100 if task_tokens else 0.0
+        uses = max(0, int(data.get("uses", 0)))
+        successes = max(0, min(uses, int(data.get("successes", 0))))
+        reliability = ((successes + 1) / (uses + 2)) * 100
+        rarity = max(0, min(100, float(data.get("rarity", 50))))
+        restraint = max(0, min(100, float(data.get("restraint", 50))))
+        score = match * 0.40 + reliability * 0.25 + rarity * 0.20 + restraint * 0.15
+        ranked.append({
+            "skill": name,
+            "score": round(score, 2),
+            "rarity": round(rarity, 2),
+            "restraint": round(restraint, 2),
+            "reliability": round(reliability, 2),
+            "task_match": overlap,
+            "task_match_score": round(match, 2),
+            "uses": uses,
+            "reason": (
+                f"Task fit {match:.1f}/100 (overlap {overlap}); "
+                f"reliability {reliability:.1f}/100; "
+                f"rarity {rarity:.1f}/100; restraint {restraint:.1f}/100. "
+                "Weighted score: 40% task fit, 25% reliability, "
+                "20% rarity, 15% restraint."
+            ),
+            "factors": {
+                "task_fit": round(match, 2),
+                "reliability": round(reliability, 2),
+                "rarity": round(rarity, 2),
+                "restraint": round(restraint, 2),
+            },
+        })
+    ranked.sort(key=lambda row: (row["score"], row["uses"], row["skill"]), reverse=True)
+    return ranked
+
+
 class Store:
     """Thread-safe local score store with atomic writes and corruption quarantine."""
     def __init__(self, data_dir: Path | str | None = None):
@@ -285,23 +326,20 @@ def register(ctx):
     def route_skills(args, **kwargs):
         args = args if isinstance(args, dict) else {}
         task = str(args.get("task") or "").strip()
-        task_tokens = _tokens(task)
-        ranked = []
-        for name, data in store.tools.items():
-            learned = set(data.get("tokens", [])) | _tokens(name)
-            overlap = len(task_tokens & learned)
-            reliability = (int(data.get("successes", 0)) + 1) / (int(data.get("uses", 0)) + 2)
-            score = overlap * 10 + reliability * 3 + int(data.get("rarity", 50)) / 100
-            ranked.append((score, name, data, overlap))
-        ranked.sort(key=lambda row: (row[0], row[2].get("uses", 0)), reverse=True)
-        recommended = [{"skill": name, "rarity": data.get("rarity", 50), "restraint": data.get("restraint", 50),
-                        "uses": data.get("uses", 0), "task_match": overlap,
-                        "reliability": round((data.get("successes", 0) + 1) / (data.get("uses", 0) + 2), 3)}
-                       for _, name, data, overlap in ranked[:5]]
-        best = ranked[0][1] if ranked else None
-        return json.dumps({"task": task, "recommended": recommended, "best": best,
-                           "message": f"Rariflat recommends {best}." if best else "No tool history yet."})
-
+        ranked = _rank_tools(task, store.tools)
+        recommended = ranked[:5]
+        best = recommended[0]["skill"] if recommended else None
+        return json.dumps({
+            "router_type": "tool_skill_recommender",
+            "dispatches_to_agent": False,
+            "task": task,
+            "recommended": recommended,
+            "best": best,
+            "message": (
+                f"Rariflat recommends tool/skill {best}; it does not dispatch tasks to agents."
+                if best else "No tool history yet."
+            ),
+        })
     def get_status(args=None, **kwargs):
         top = sorted(store.tools.items(), key=lambda x: (x[1].get("successes", 0) / max(1, x[1].get("uses", 0)), x[1].get("uses", 0)), reverse=True)[:5]
         return json.dumps({"characters_active": True, "tracked_tools": len(store.tools), "guard_enabled": store.guard_enabled,
@@ -318,7 +356,7 @@ def register(ctx):
                            "message": f"{tool} would be blocked." if blocked else f"{tool} is allowed."})
 
     ctx.register_tool(name="rariflat_route", toolset="rariflat",
-        schema={"name": "rariflat_route", "description": "Recommend a tool for a task using learned argument tokens and reliability.", "parameters": {"type": "object", "properties": {"task": {"type": "string"}}, "required": ["task"]}},
+        schema={"name": "rariflat_route", "description": "Rank and recommend a Hermes tool/skill using task fit, reliability, rarity, and restraint. Advisory only; does not dispatch tasks to agents.", "parameters": {"type": "object", "properties": {"task": {"type": "string"}}, "required": ["task"]}},
         handler=route_skills)
     ctx.register_tool(name="rariflat_status", toolset="rariflat",
         schema={"name": "rariflat_status", "description": "Show Rariflat tool reliability and guard status.", "parameters": {"type": "object", "properties": {}}},
