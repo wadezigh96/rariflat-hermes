@@ -1,13 +1,14 @@
 name: rariflat
-description: Living status characters for every tool call, explainable tool/skill recommendations weighted by task fit, reliability, usage-frequency rarity and repeated-call restraint, and an opt-in loop/circuit-breaker guard.
+title: Rariflat
+description: "Live character reactions for Hermes tool calls; local reliability learning and explainable tool/skill recommendations weighted by task fit, reliability, measured usage-frequency rarity, and repeated-call restraint. The router recommends tools/skills only; it does not dispatch tasks to agents or invoke selected tools. An opt-in failure-streak and repeated-call guard is disabled by default. Tool arguments are inspected in memory for non-secret task tokens and repeat fingerprints; credential-like fields and recognized inline secrets are filtered before learning. No raw arguments or credentials are intentionally persisted. No network requests, telemetry, or subprocesses are initiated by the plugin."
 repo: https://github.com/wadezigh96/rariflat-hermes
-sha: 1954efea763366938b00714e903c527febe86229
+sha: 31c522ddccd32674a474bf8b73273b4605e14b2e
 version: "2.0.0"
+maintainer: wadezigh96
 tier: community
 category: desktop
-maintainer: wadezigh96
 requires_hermes: ">=0.21"
-tags: [visual, status, router, reliability, guard, desktop]
+docs_url: https://github.com/wadezigh96/rariflat-hermes#readme
 capabilities:
   provides_tools:
     - rariflat_route
