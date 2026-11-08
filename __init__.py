@@ -74,11 +74,32 @@ def _safe_token_parts(value: Any) -> list[str]:
     return [text]
 
 
+# Capability aliases bridge natural-language task wording and common tool names.
+# Keep this intentionally small and inspectable; this is lexical matching, not an
+# embedding model or a claim of semantic understanding.
+_ROUTING_ALIASES = {
+    "documentation": "search",
+    "document": "search",
+    "docs": "search",
+    "lookup": "search",
+    "research": "search",
+    "browse": "search",
+    "browsing": "search",
+    "internet": "search",
+    "online": "search",
+}
+
+
 def _tokens(value: Any) -> set[str]:
-    """Extract useful routing tokens without retaining credential values."""
+    """Extract safe routing tokens, splitting tool-name compounds and normalizing aliases."""
     parts = _safe_token_parts(value)
     text = " ".join(parts)
-    return {t for t in re.findall(r"[a-z0-9_+-]{2,}", text.lower()) if t not in STOP_WORDS}
+    # Split snake_case, kebab-case, dotted names, and CamelCase before tokenizing.
+    text = re.sub(r"([a-z0-9])([A-Z])", r"\\1 \\2", text)
+    words = re.findall(r"[a-z0-9+-]{2,}", re.sub(r"[_./:-]+", " ", text.lower()))
+    tokens = {word for word in words if word not in STOP_WORDS}
+    tokens.update(_ROUTING_ALIASES[word] for word in tuple(tokens) if word in _ROUTING_ALIASES)
+    return tokens
 
 
 def _safe_fingerprint_value(value: Any) -> Any:
