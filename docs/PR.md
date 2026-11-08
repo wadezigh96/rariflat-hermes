@@ -1,26 +1,25 @@
-# Pull Request Description (copy into your PR)
+# PR description — add `plugin-catalog/rariflat.yaml`
 
-## Rariflat — Visual Agent Status + Multi-Agent Router
+Adds **Rariflat** to the Hermes plugin catalog. The PR changes one file: `plugin-catalog/rariflat.yaml`.
 
-Characters come alive on every tool call. Skills are ranked and routed by **rarity + restraint**.
+## What it is
+A Python plugin with an optional Desktop half. It observes `pre_tool_call` / `post_tool_call`, keeps per-tool
+reliability statistics, shows a character reaction per tool call in the Desktop pane, and exposes three tools:
+`rariflat_route` (task-aware suggestion among observed tools), `rariflat_status`, `rariflat_guard`, plus a `/rariflat` command.
 
-### What it does
-- Hooks `pre_tool_call` and `post_tool_call` to show a living character reaction (Owl, Hephaestus, Mnemosyne, Cerberus, etc.)
-- Tracks success rate and restraint per tool/skill and persists scores
-- Provides `rariflat_route` tool and `/rariflat` command for ranking and routing
-- Optional Desktop pane that visualizes the active character and recent history
+## Disclosure
+- **Storage:** one local JSON file (`$HERMES_HOME/plugin-data/rariflat/scores.json`: tool name → counts) and an optional `config.json`. Tool arguments/results are not stored or logged.
+- **Network:** none. **Credentials:** none. **Subprocesses / shell:** none.
+- **Blocking:** the plugin *can* veto tool calls through `pre_tool_call` (`{"action": "block", "message": ...}`), but only when the user has set `guard.enabled: true` and listed tools in a deny/allow list. Default is observe-only. It never blocks its own `rariflat_*` tools, and tool-result text cannot change blocking decisions.
+- **Approvals:** the plugin does not approve, auto-approve or bypass anything; it can only make Hermes *more* restrictive, at the user's explicit request.
+- **Desktop:** `desktop/plugin.js` imports only `@hermes/plugin-sdk`, `react`, `react/jsx-runtime`; it listens for `plugin.rariflat.tool`, which the Python half emits via `hermes_cli.plugin_events.broadcast_plugin_event`. No self-updating code.
 
-### Surfaces used
-- Python plugin hooks and tools (`ctx.register_tool`, `ctx.register_hook`, `ctx.register_command`)
-- Desktop Plugin SDK (optional pane + status chip)
+## Validation
+- `hermes plugins validate .` — passes (manifest, declared tools/hooks match registrations, security scan, desktop surface).
+- `hermes plugins doctor .` — passes (3 tools, 2 hooks).
+- `python -m pytest tests` — 49 tests.
 
-### Disclosure
-- Local file persistence under `~/.hermes/plugin-data/rariflat/scores.json`
-- No network calls
-- No credentials required
-- No shell commands executed by the plugin itself
-
-### Screenshots
-(Attach a screenshot of the Desktop pane and a short terminal log of character reactions.)
-
-Repo: https://github.com/wadezigh96/rariflat-hermes
+## Known limits
+- `rariflat_route` ranks tool names it has observed; it does not know Hermes skills it has never seen used.
+- Success detection is heuristic and only feeds statistics.
+- The Desktop pane receives events only when hooks run inside `hermes serve`.

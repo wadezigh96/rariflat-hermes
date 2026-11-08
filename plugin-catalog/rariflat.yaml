@@ -1,17 +1,18 @@
 name: rariflat
-description: Visual Agent Status + Multi-Agent Router. Characters come alive on every tool call. Routes skills by rarity and restraint.
+title: Rariflat
+description: "Shows a character reaction for every tool call (Desktop pane + optional log lines), tracks how reliably each tool behaves, suggests which observed tool fits a task, and offers an opt-in guard. Disclosure — all local: statistics are kept in one JSON file under $HERMES_HOME/plugin-data/rariflat/; no network calls, no credentials, no subprocesses. The guard is OFF by default (observe-only) and only blocks tools you list in config.json or RARIFLAT_DENY/RARIFLAT_ALLOW; it never blocks on its own judgment and never blocks its own tools. Tool results only change statistics, never blocking. Desktop events go through hermes_cli.plugin_events to your own Desktop app."
 repo: https://github.com/wadezigh96/rariflat-hermes
+# Fill in AFTER your final commit:  git rev-parse HEAD   (must be the full 40-character SHA)
 sha: REPLACE_WITH_FULL_40_CHAR_COMMIT_SHA
-version: "1.0.0"
+version: "1.2.0"
+maintainer: wadezigh96
 tier: community
 category: desktop
-maintainer: wadezigh96
-requires_hermes: ">=0.21"
-tags: [visual, status, router, skills, desktop]
 capabilities:
   provides_tools:
     - rariflat_route
     - rariflat_status
+    - rariflat_guard
   provides_hooks:
     - pre_tool_call
     - post_tool_call
