@@ -1,11 +1,12 @@
 name: rariflat
-version: "1.1.0"
-description: Visual Agent Status + Intelligent Router. Characters react on every tool call. Routes and guards skills by rarity + restraint.
+version: "1.2.0"
+description: Tool-call status characters, tool reliability tracking, task-aware tool suggestions, and an optional opt-in guard.
 manifest_version: 2
 api_version: 1
 license: MIT
 homepage: https://github.com/wadezigh96/rariflat-hermes
-tags: [visual, status, router, guard, skills, desktop]
+tags: [status, router, reliability, guard, desktop]
+requires_hermes: ">=0.21.5"
 provides_tools:
   - rariflat_route
   - rariflat_status
@@ -13,4 +14,3 @@ provides_tools:
 provides_hooks:
   - pre_tool_call
   - post_tool_call
-requires_hermes: ">=0.21"
