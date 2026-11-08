@@ -214,3 +214,20 @@ def test_repeated_call_fingerprint_excludes_credentials(rf, tmp_path):
     store.record_result("api_call", {"query": "weather", "api_key": "second-secret"}, True, timestamp=110)
     assert store.tools["api_call"]["last_args_fingerprint"] == first
     assert store.tools["api_call"]["repeated_calls"] == 1
+
+def test_tokens_split_compound_tool_names_and_normalize_documentation(rf):
+    tokens = rf._tokens("tool_search webSearch documentation")
+    assert {"tool", "search", "web", "documentation"} <= tokens
+    assert "search" in tokens
+
+
+def test_natural_language_documentation_task_has_nonzero_task_fit(rf, ctx):
+    # The tool's observed arguments contain searchable capability terms.
+    call(ctx, "web_search", {"query": "public documentation Hermes plugins"})
+    out = json.loads(ctx.tools["rariflat_route"]({
+        "task": "find and summarize public documentation about Hermes plugins"
+    }))
+    assert out["recommended"]
+    assert any(item["task_match_score"] > 0 for item in out["recommended"])
+    assert out["best"] == "web_search"
+
