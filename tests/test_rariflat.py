@@ -234,7 +234,7 @@ def test_natural_language_documentation_task_has_nonzero_task_fit(rf, ctx):
 
 
 
-def test_recent_restraint_uses_rolling_window(rf, tmp_path):
+def test_recent_restraint_uses_rolling_window(rf, tmp_path, monkeypatch):
     store = rf.Store(tmp_path)
     args = {"query": "same"}
     store.record_result("web_search", args, True, timestamp=100)
@@ -242,6 +242,7 @@ def test_recent_restraint_uses_rolling_window(rf, tmp_path):
     store.record_result("web_search", args, True, timestamp=110)
     metrics = rf._recent_usage_metrics(store.tools["web_search"], now=111, window=30)
     assert metrics == {"recent_uses": 3, "repeated_calls_30s": 2}
+    monkeypatch.setattr(rf.time, "time", lambda: 111)
     ranked = rf._rank_tools("query same", {"web_search": store.tools["web_search"]})
     assert ranked[0]["restraint"] == 33.33
     metrics = rf._recent_usage_metrics(store.tools["web_search"], now=141, window=30)
