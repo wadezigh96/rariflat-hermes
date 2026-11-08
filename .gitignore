@@ -6,3 +6,5 @@ __pycache__/
 .DS_Store
 scores.json
 scores.json.corrupt-*
+.vercel
+.env*
