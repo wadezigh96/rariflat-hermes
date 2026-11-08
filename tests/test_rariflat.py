@@ -300,6 +300,63 @@ def test_route_explains_all_ranking_factors_and_router_scope(rf, ctx):
     assert all(key in item["reason"] for key in ("rarity", "restraint", "reliability"))
 
 
+def test_route_emits_privacy_safe_desktop_decision_event(rf, ctx, monkeypatch):
+    import sys
+    from types import ModuleType
+
+    emitted = []
+    hermes_cli = ModuleType("hermes_cli")
+    hermes_cli.__path__ = []
+    events = ModuleType("hermes_cli.plugin_events")
+    events.broadcast_plugin_event = lambda *args: emitted.append(args)
+    monkeypatch.setitem(sys.modules, "hermes_cli", hermes_cli)
+    monkeypatch.setitem(sys.modules, "hermes_cli.plugin_events", events)
+
+    call(ctx, "web_search", {"query": "public plugin docs"})
+    private_task = "customer-project-codeword-91"
+    result = json.loads(ctx.tools["rariflat_route"]({"task": f"research {private_task}"}))
+    route_events = [event for event in emitted if len(event) == 3 and event[1] == "route"]
+
+    assert len(route_events) == 1
+    plugin, event_type, payload = route_events[0]
+    assert (plugin, event_type) == ("rariflat", "route")
+    assert set(payload) == {"recommended", "weights", "minimum_observations"}
+    assert payload["minimum_observations"] == 5
+    assert payload["weights"] == {"task_fit": 40, "reliability": 25, "rarity": 20, "restraint": 15}
+    assert len(payload["recommended"]) == 1
+    item = payload["recommended"][0]
+    assert item["skill"] == result["best"] == "web_search"
+    assert item["uses"] == 1 and item["successes"] == 1 and item["failures"] == 0
+    assert item["counts_capped"] is False
+    assert set(item["factors"]) == {"task_fit", "reliability", "rarity", "restraint"}
+    serialized = json.dumps(payload)
+    assert private_task not in serialized
+    assert "reason" not in payload and "task" not in payload and "args" not in payload
+    assert set(item) == {"skill", "score", "uses", "successes", "failures", "counts_capped", "factors"}
+
+
+def test_route_event_payload_caps_counts_consistently_and_limits_rows(rf):
+    row = {
+        "skill": "web_search",
+        "score": 80,
+        "uses": 1_500_000,
+        "successes": 900_000,
+        "failures": 600_000,
+        "factors": {"task_fit": 80, "reliability": 60, "rarity": 20, "restraint": 100},
+        "reason": "must not be sent to Desktop",
+    }
+    payload = rf._route_event_payload([row | {"skill": f"tool_{index}"} for index in range(4)])
+
+    assert len(payload["recommended"]) == 3
+    item = payload["recommended"][0]
+    assert item["uses"] == 1_000_000
+    assert item["successes"] == 900_000
+    assert item["failures"] == 100_000
+    assert item["successes"] + item["failures"] == item["uses"]
+    assert item["counts_capped"] is True
+    assert "reason" not in item
+
+
 def test_repeated_call_fingerprint_excludes_credentials(rf, tmp_path):
     store = rf.Store(tmp_path)
     store.record_result("api_call", {"query": "weather", "api_key": "first-secret"}, True, timestamp=100)
