@@ -115,6 +115,31 @@ def test_guard_resets_after_success(rf, ctx, monkeypatch):
     assert ctx.hooks["pre_tool_call"]("terminal", {}) is None
 
 
+def test_zero_cooldown_recovers_immediately(rf, ctx, monkeypatch):
+    rf._get_store().set_guard(True)
+    monkeypatch.setenv("RARIFLAT_FAIL_STREAK", "2")
+    monkeypatch.setenv("RARIFLAT_COOLDOWN", "0")
+    for _ in range(2):
+        call(ctx, "terminal", {}, result="Error: unavailable")
+    assert rf._get_store().tools["terminal"]["fail_streak"] == 2
+    assert ctx.hooks["pre_tool_call"]("terminal", {}) is None
+    assert rf._get_store().tools["terminal"]["fail_streak"] == 0
+
+
+def test_guard_preference_survives_store_reload(rf, tmp_path):
+    store = rf._get_store()
+    store.set_guard(True)
+    assert rf.Store(tmp_path).guard_enabled is True
+    store.set_guard(False)
+    assert rf.Store(tmp_path).guard_enabled is False
+
+
+def test_guard_environment_setting_overrides_persisted_preference(rf, tmp_path, monkeypatch):
+    rf.Store(tmp_path).set_guard(False)
+    monkeypatch.setenv("RARIFLAT_GUARD", "1")
+    assert rf.Store(tmp_path).guard_enabled is True
+
+
 def test_loop_detector_opt_in(rf, ctx, monkeypatch):
     rf._get_store().set_guard(True)
     monkeypatch.setenv("RARIFLAT_LOOP_REPEAT", "3")
@@ -150,6 +175,26 @@ def test_tokens_never_learn_credential_fields(rf):
     for secret in ("sk-live-supersecret", "topsecret", "hidden-secret", "inline-secret", "hunter2"):
         assert secret not in joined
     assert "python" in tokens and "asyncio" in tokens and "documentation" in tokens
+
+
+def test_argument_learning_can_be_disabled(rf, tmp_path, monkeypatch):
+    monkeypatch.setenv("RARIFLAT_LEARN_ARGS", "0")
+    store = rf.Store(tmp_path)
+    store.record_result("web_search", {"query": "private project docs"}, True)
+    assert store.tools["web_search"]["tokens"] == []
+    assert store.tools["web_search"]["last_args_fingerprint"]
+
+
+def test_failure_event_does_not_expose_raw_tool_output(rf, ctx, monkeypatch):
+    emitted = []
+    monkeypatch.setattr(rf, "_emit", lambda *args: emitted.append(args))
+    ctx.hooks["post_tool_call"](
+        "terminal", {}, "Error: Authorization: Bearer super-secret-value"
+    )
+    event = emitted[-1]
+    assert event[0:3] == ("done", "terminal", False)
+    assert "super-secret-value" not in event[3]
+    assert "Authorization" not in event[3]
 
 
 def test_http_status_codes_use_http_semantics(rf):
