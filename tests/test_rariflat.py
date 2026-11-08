@@ -173,25 +173,28 @@ def test_loop_cache_prunes_expired_signatures_and_is_bounded(rf, monkeypatch):
     assert len(store._recent_calls) == 1
 
 def test_rarity_changes_ranking(rf):
-    base = {
-        "common_tool": {"tokens": ["python", "asyncio"], "uses": 10, "successes": 8, "rarity": 10, "restraint": 50},
-        "rare_tool": {"tokens": ["python", "asyncio"], "uses": 10, "successes": 8, "rarity": 90, "restraint": 50},
-    }
-    assert rf._rank_tools("python asyncio", base)[0]["skill"] == "rare_tool"
-    base["rare_tool"]["rarity"] = 0
-    base["common_tool"]["rarity"] = 100
-    assert rf._rank_tools("python asyncio", base)[0]["skill"] == "common_tool"
+    common = {"tokens": ["python", "asyncio"], "uses": 100, "successes": 90, "repeated_calls": 0}
+    rare = {"tokens": ["python", "asyncio"], "uses": 1, "successes": 1, "repeated_calls": 0}
+    ranked = rf._rank_tools("python asyncio", {"common_tool": common, "rare_tool": rare})
+    assert ranked[0]["skill"] == "rare_tool"
+    assert ranked[0]["rarity"] > ranked[1]["rarity"]
 
 
 def test_restraint_changes_ranking(rf):
-    base = {
-        "restrained_tool": {"tokens": ["python", "asyncio"], "uses": 10, "successes": 8, "rarity": 50, "restraint": 90},
-        "unrestrained_tool": {"tokens": ["python", "asyncio"], "uses": 10, "successes": 8, "rarity": 50, "restraint": 10},
-    }
-    assert rf._rank_tools("python asyncio", base)[0]["skill"] == "restrained_tool"
-    base["restrained_tool"]["restraint"] = 0
-    base["unrestrained_tool"]["restraint"] = 100
-    assert rf._rank_tools("python asyncio", base)[0]["skill"] == "unrestrained_tool"
+    restrained = {"tokens": ["python", "asyncio"], "uses": 10, "successes": 10, "repeated_calls": 0}
+    repetitive = {"tokens": ["python", "asyncio"], "uses": 10, "successes": 10, "repeated_calls": 8}
+    ranked = rf._rank_tools("python asyncio", {"restrained_tool": restrained, "repetitive_tool": repetitive})
+    assert ranked[0]["skill"] == "restrained_tool"
+    assert ranked[0]["restraint"] > ranked[1]["restraint"]
+
+
+def test_repeated_call_metric_is_learned(rf, tmp_path):
+    store = rf.Store(tmp_path)
+    store.record_result("browser", {"url": "https://example.com"}, True, timestamp=100)
+    store.record_result("browser", {"url": "https://example.com"}, True, timestamp=110)
+    assert store.tools["browser"]["repeated_calls"] == 1
+    store.record_result("browser", {"url": "https://different.example"}, True, timestamp=115)
+    assert store.tools["browser"]["repeated_calls"] == 1
 
 
 def test_route_explains_all_ranking_factors_and_router_scope(rf, ctx):
@@ -202,3 +205,12 @@ def test_route_explains_all_ranking_factors_and_router_scope(rf, ctx):
     item = out["recommended"][0]
     assert {"rarity", "restraint", "reliability", "reason", "factors"} <= item.keys()
     assert all(key in item["reason"] for key in ("rarity", "restraint", "reliability"))
+
+
+def test_repeated_call_fingerprint_excludes_credentials(rf, tmp_path):
+    store = rf.Store(tmp_path)
+    store.record_result("api_call", {"query": "weather", "api_key": "first-secret"}, True, timestamp=100)
+    first = store.tools["api_call"]["last_args_fingerprint"]
+    store.record_result("api_call", {"query": "weather", "api_key": "second-secret"}, True, timestamp=110)
+    assert store.tools["api_call"]["last_args_fingerprint"] == first
+    assert store.tools["api_call"]["repeated_calls"] == 1

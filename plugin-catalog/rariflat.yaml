@@ -1,7 +1,7 @@
 name: rariflat
-description: Living status characters for every tool call, explainable tool/skill recommendations weighted by task fit, reliability, rarity and restraint, and an opt-in loop/circuit-breaker guard.
+description: Living status characters for every tool call, explainable tool/skill recommendations weighted by task fit, reliability, usage-frequency rarity and repeated-call restraint, and an opt-in loop/circuit-breaker guard.
 repo: https://github.com/wadezigh96/rariflat-hermes
-sha: cf782d17563ed27e6c6a42f5a19db744e375b608
+sha: 1954efea763366938b00714e903c527febe86229
 version: "2.0.0"
 tier: community
 category: desktop

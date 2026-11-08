@@ -12,3 +12,18 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "22" }
       - run: node --test tests/desktop_event_contract.test.mjs
+
+
+  hermes-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install official Hermes CLI
+        run: |
+          curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --non-interactive --skip-browser --skip-computer-use
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Validate plugin with Hermes
+        run: |
+          hermes --version
+          hermes plugins validate . --install-deps
+          hermes plugins doctor .
