@@ -167,7 +167,8 @@ def test_loop_cache_prunes_expired_signatures_and_is_bounded(rf, monkeypatch):
     monkeypatch.setenv("RARIFLAT_LOOP_REPEAT", "3")
     monkeypatch.setenv("RARIFLAT_LOOP_WINDOW", "10")
     for i in range(1100):
-        store.loop_detected("browser", {"url": f"https://example.com/{i}"}, now=100.0)    assert len(store._recent_calls) <= 1024
+        store.loop_detected("browser", {"url": f"https://example.com/{i}"}, now=100.0)
+    assert len(store._recent_calls) <= 1024
     store.loop_detected("browser", {"url": "https://new.example/"}, now=200.0)
     assert len(store._recent_calls) == 1
 
@@ -211,6 +212,8 @@ def test_rarity_changes_ranking(rf, monkeypatch):
     monkeypatch.setattr(rf, "math", FlatMath)
     ranked_without_rarity = rf._rank_tools("python asyncio", tools)
     assert ranked_without_rarity[0]["skill"] == "common_tool"
+
+
 def test_restraint_changes_ranking(rf):
     now = time.time()
     restrained = {
