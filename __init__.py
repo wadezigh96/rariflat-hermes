@@ -5,6 +5,7 @@ import atexit
 import hashlib
 import json
 import logging
+import math
 import os
 import re
 import tempfile
@@ -124,7 +125,7 @@ def judge_result(result: Any) -> bool:
 
 
 def _rank_tools(task: str, tools: dict[str, dict]) -> list[dict]:
-    """Rank tools using task fit, reliability, rarity, and restraint (0–100)."""
+    """Rank tools using measurable task fit, reliability, usage rarity and restraint."""
     task_tokens = _tokens(task)
     ranked = []
     for name, data in tools.items():
@@ -133,9 +134,12 @@ def _rank_tools(task: str, tools: dict[str, dict]) -> list[dict]:
         match = (overlap / max(1, len(task_tokens))) * 100 if task_tokens else 0.0
         uses = max(0, int(data.get("uses", 0)))
         successes = max(0, min(uses, int(data.get("successes", 0))))
-        reliability = ((successes + 1) / (uses + 2)) * 100
-        rarity = max(0, min(100, float(data.get("rarity", 50))))
-        restraint = max(0, min(100, float(data.get("restraint", 50))))
+        reliability = (successes / uses) * 100 if uses else 50.0
+        # Rarity is derived from observed call frequency, not a manually tuned counter.
+        rarity = 100.0 / (1.0 + math.log2(uses + 1))
+        # Restraint penalizes repeated identical calls within the 30-second observation window.
+        repeated_calls = max(0, min(uses, int(data.get("repeated_calls", 0))))
+        restraint = (1.0 - repeated_calls / uses) * 100 if uses else 100.0
         score = match * 0.40 + reliability * 0.25 + rarity * 0.20 + restraint * 0.15
         ranked.append({
             "skill": name,
@@ -146,10 +150,12 @@ def _rank_tools(task: str, tools: dict[str, dict]) -> list[dict]:
             "task_match": overlap,
             "task_match_score": round(match, 2),
             "uses": uses,
+            "repeated_calls": repeated_calls,
             "reason": (
                 f"Task fit {match:.1f}/100 (overlap {overlap}); "
-                f"reliability {reliability:.1f}/100; "
-                f"rarity {rarity:.1f}/100; restraint {restraint:.1f}/100. "
+                f"reliability {reliability:.1f}/100 ({successes}/{uses} successes); "
+                f"rarity {rarity:.1f}/100 (observed uses: {uses}); "
+                f"restraint {restraint:.1f}/100 ({repeated_calls} repeated calls in 30s). "
                 "Weighted score: 40% task fit, 25% reliability, "
                 "20% rarity, 15% restraint."
             ),
@@ -162,7 +168,6 @@ def _rank_tools(task: str, tools: dict[str, dict]) -> list[dict]:
         })
     ranked.sort(key=lambda row: (row["score"], row["uses"], row["skill"]), reverse=True)
     return ranked
-
 
 class Store:
     """Thread-safe local score store with atomic writes and corruption quarantine."""
@@ -235,18 +240,23 @@ class Store:
         now = float(timestamp if timestamp is not None else time.time())
         with self._lock:
             item = self.tools.setdefault(tool_name, {"rarity": 50, "restraint": 50, "uses": 0, "successes": 0, "fail_streak": 0, "tokens": [], "last_used": 0, "last_failure": 0})
+            fingerprint_source = json.dumps(
+                args if isinstance(args, (dict, list, str, int, float, bool)) else str(args),
+                sort_keys=True, default=str,
+            )
+            fingerprint = hashlib.sha256(fingerprint_source.encode("utf-8")).hexdigest()
+            previous_used = float(item.get("last_used", 0))
+            if item.get("last_args_fingerprint") == fingerprint and 0 <= now - previous_used <= 30:
+                item["repeated_calls"] = int(item.get("repeated_calls", 0)) + 1
+            item["last_args_fingerprint"] = fingerprint
             item["uses"] = int(item.get("uses", 0)) + 1
             item["last_used"] = now
             if success:
                 item["successes"] = int(item.get("successes", 0)) + 1
                 item["fail_streak"] = 0
-                item["rarity"] = min(100, int(item.get("rarity", 50)) + 2)
-                item["restraint"] = min(100, int(item.get("restraint", 50)) + 1)
             else:
                 item["fail_streak"] = int(item.get("fail_streak", 0)) + 1
                 item["last_failure"] = now
-                item["rarity"] = max(0, int(item.get("rarity", 50)) - 1)
-                item["restraint"] = max(0, int(item.get("restraint", 50)) - 3)
             item["tokens"] = sorted(set(item.get("tokens", [])) | _tokens(args))[:160]
         self.save()
 
@@ -341,10 +351,11 @@ def register(ctx):
             ),
         })
     def get_status(args=None, **kwargs):
-        top = sorted(store.tools.items(), key=lambda x: (x[1].get("successes", 0) / max(1, x[1].get("uses", 0)), x[1].get("uses", 0)), reverse=True)[:5]
+        top = _rank_tools("", store.tools)[:5]
         return json.dumps({"characters_active": True, "tracked_tools": len(store.tools), "guard_enabled": store.guard_enabled,
-                           "top_skills": [{"name": n, "rarity": d.get("rarity", 50), "restraint": d.get("restraint", 50),
-                                           "uses": d.get("uses", 0), "successes": d.get("successes", 0)} for n, d in top]})
+                           "top_skills": [{"name": d["skill"], "rarity": d["rarity"], "restraint": d["restraint"],
+                                           "reliability": d["reliability"], "uses": d["uses"],
+                                           "repeated_calls": d["repeated_calls"]} for d in top]})
 
     def guard_check(args, **kwargs):
         args = args if isinstance(args, dict) else {}
