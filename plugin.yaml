@@ -1,6 +1,6 @@
 name: rariflat
-version: "1.2.0"
-description: Tool-call status characters, tool reliability tracking, task-aware tool suggestions, and an optional opt-in guard.
+version: "2.0.0"
+description: Tool-call status characters, reliability scoring, task-aware tool routing, and an opt-in loop/circuit-breaker guard.
 manifest_version: 2
 api_version: 1
 license: MIT
