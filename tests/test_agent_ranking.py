@@ -130,3 +130,17 @@ def test_rejects_a2a_urls_with_query_tokens_or_fragments(tmp_path):
         registry.register("agent-b", "Bad", "a2a", ["research"],
                           "https://example.org/card",
                           endpoint="https://example.org/agent#secret")
+
+
+def test_hermes_install_ref_is_repo_slug_not_arbitrary_command(tmp_path):
+    registry = AgentRegistry(tmp_path)
+    with pytest.raises(ValueError):
+        registry.register("agent-bad", "Bad", "hermes", ["research"],
+                          "untrusted source", install_ref="https://evil.example/install.sh")
+    with pytest.raises(ValueError):
+        registry.register("agent-cmd", "Bad", "hermes", ["research"],
+                          "untrusted source", install_ref="curl|sh")
+    item = registry.register("agent-good", "Good", "hermes", ["research"],
+                             "https://github.com/acme/research-agent",
+                             install_ref="acme/research-agent")
+    assert item["install_ref"] == "acme/research-agent"
