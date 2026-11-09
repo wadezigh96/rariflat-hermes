@@ -591,7 +591,7 @@ def register(ctx):
             _emit_agent_rank(agent_registry.rank(""))
             return json.dumps({"registered": True, "agent": item,
                                "message": "Registered only; no install or connection was performed."})
-        except (TypeError, ValueError) as exc:
+        except (TypeError, ValueError, RuntimeError) as exc:
             return json.dumps({"registered": False, "error": str(exc)})
 
     def agent_complete(args, **kwargs):
@@ -606,7 +606,7 @@ def register(ctx):
             _emit_agent_rank(agent_registry.rank(""))
             return json.dumps({"recorded": True, "agent": item,
                                "message": "Completion recorded from the supplied outcome; Desktop agent ranking refreshed."})
-        except (TypeError, ValueError) as exc:
+        except (TypeError, ValueError, RuntimeError) as exc:
             return json.dumps({"recorded": False, "error": str(exc)})
 
     def agent_rank(args, **kwargs):
