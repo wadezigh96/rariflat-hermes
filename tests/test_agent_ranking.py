@@ -86,10 +86,10 @@ def test_corrupt_registry_is_not_overwritten(tmp_path):
 
 def test_task_ranking_and_historical_performance_are_separate(tmp_path):
     registry = AgentRegistry(tmp_path)
-    registry.register("a", "A", "a2a", ["research", "web", "search"],
+    registry.register("agent-a", "A", "a2a", ["research", "web", "search"],
                       "https://a.example/card", endpoint="https://a.example")
     for i in range(5):
-        registry.record("a", "research web search", True, quality=95, duration_seconds=20)
+        registry.record("agent-a", "research web search", True, quality=95, duration_seconds=20)
     row = registry.rank("research web search")[0]
     assert row["performance_score"] == 99
     assert row["requested_task_fit"] == 100
