@@ -41,13 +41,13 @@ Each recommendation includes the measured factor values, use/repeat counts, and 
 
 ### 2. Install Rariflat
 
-Until the official catalog PR is accepted and published, install the reviewed source revision directly:
+The Rariflat catalog entry has been merged, but the upstream Hermes catalog currently pins an older revision that declares only three tools and two hooks. The current branch contains six tools and four hooks. Until a separate SHA-bump PR is reviewed and merged upstream, install this exact branch commit as a custom source:
 
 ```bash
-hermes plugins install wadezigh96/rariflat-hermes --ref e7a8d9bb3fc88eda28ebd5cd253a3a4a48d855cb --enable
+hermes plugins install wadezigh96/rariflat-hermes --ref 2e52d0bd78e15230164d436ad91ce57c5179ddd5 --enable
 ```
 
-The `--ref` value is the immutable 40-character SHA for the audited source commit. It passed the Hermes v0.23.0 plugin validator and Doctor. The command uses Hermes' documented Git installation flow; `--enable` skips the enable prompt. Review and accept any dependency-consent prompt shown by Hermes. For future source changes, update this pin and the catalog PR to the exact pushed and validated commit. After the catalog listing is accepted, users can install by catalog name with `hermes plugins install rariflat --enable`.
+The `--ref` value is the immutable 40-character SHA for the current branch commit. This is a custom Git install, not a catalog-provenance install; review the source and accept Hermes' normal install/enable prompts. The command uses Hermes' documented Git installation flow; `--enable` skips the enable prompt. Review and accept any dependency-consent prompt shown by Hermes. For future source changes, update this pin only after the exact commit has passed tests and Hermes validation. Users installing by catalog name will receive the upstream catalog's currently reviewed older pin until its separate SHA-bump PR is merged.
 
 ### 3. Validate the plugin
 
