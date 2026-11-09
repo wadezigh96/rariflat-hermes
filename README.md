@@ -1,6 +1,6 @@
-# Rariflat 2.0.0
+# Rariflat 2.1.0
 
-Rariflat adds live status characters, local reliability learning, task-aware tool recommendations, and an **opt-in** failure-streak / repeated-call guard to Hermes Agent.
+Rariflat adds live status characters, evidence-based tool and Hermes/A2A agent ranking, observed completion metrics, and an **opt-in** failure-streak / repeated-call guard to Hermes Agent.
 
 It is designed to make tool activity easier to understand, help operators compare tools using observed outcomes, and surface repeated-call or failure patterns without silently taking over agent execution.
 
