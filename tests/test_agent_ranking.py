@@ -1,3 +1,4 @@
+import json
 import pytest
 
 from agent_ranking import AgentRegistry, _tier
