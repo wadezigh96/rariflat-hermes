@@ -118,3 +118,15 @@ def test_tier_order_is_mythic_then_legend_then_epic(tmp_path):
     rows = registry.rank("writing")
     assert rows[0]["tier"] == "MYTHIC"
     assert rows[1]["tier"] == "LEGEND"
+
+
+def test_rejects_a2a_urls_with_query_tokens_or_fragments(tmp_path):
+    registry = AgentRegistry(tmp_path)
+    with pytest.raises(ValueError):
+        registry.register("agent-a", "Bad", "a2a", ["research"],
+                          "https://example.org/card?token=secret",
+                          endpoint="https://example.org")
+    with pytest.raises(ValueError):
+        registry.register("agent-b", "Bad", "a2a", ["research"],
+                          "https://example.org/card",
+                          endpoint="https://example.org/agent#secret")
