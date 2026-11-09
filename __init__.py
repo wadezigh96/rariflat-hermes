@@ -628,7 +628,8 @@ def register(ctx):
         if agent_spec and agent_spec.loader:
             agent_module = importlib.util.module_from_spec(agent_spec)
             agent_spec.loader.exec_module(agent_module)
-            agent_registry = agent_module.AgentRegistry(store.data_dir)
+            # Follow Hermes' active profile-scoped plugin data directory.
+            agent_registry = agent_module.AgentRegistry(lambda: store.data_dir)
     except Exception as exc:
         logger.warning("Rariflat agent ranking unavailable: %s", exc)
 
@@ -700,7 +701,7 @@ def register(ctx):
                          duration_ms=None, **kwargs):
         if agent_registry is None:
             return None
-        key = str(child_session_id or "").strip()
+        key = str(child_session_id or child_subagent_id or "").strip()
         started = active_subagents.pop(key, {})
         role = str(child_role or started.get("role") or "unassigned")[:60]
         task = str(started.get("task") or child_summary or role)[:1000]
