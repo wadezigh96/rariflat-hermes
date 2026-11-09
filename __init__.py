@@ -515,10 +515,11 @@ def _emit_agent_rank(recommended: list[dict]) -> None:
     try:
         from hermes_cli.plugin_events import broadcast_plugin_event
         rows = []
-        for item in recommended[:10]:
+        for index, item in enumerate(recommended[:10], 1):
             if not isinstance(item, dict):
                 continue
             rows.append({
+                "rank": index,
                 "id": str(item.get("id") or "")[:80],
                 "name": str(item.get("name") or "")[:100],
                 "kind": item.get("kind") if item.get("kind") in {"hermes", "a2a"} else "unknown",
