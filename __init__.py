@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import atexit
 import hashlib
+import importlib.util
 import json
 import logging
 import math
@@ -530,6 +531,61 @@ def register(ctx):
     store = _get_store()
     store.record_session_start()
 
+    # Load the optional agent-ranking module from this plugin directory.
+    # It performs local bookkeeping only: no network fetch, agent execution, or install.
+    agent_registry = None
+    try:
+        agent_module_path = Path(__file__).with_name("agent_ranking.py")
+        agent_spec = importlib.util.spec_from_file_location("rariflat_agent_ranking", agent_module_path)
+        if agent_spec and agent_spec.loader:
+            agent_module = importlib.util.module_from_spec(agent_spec)
+            agent_spec.loader.exec_module(agent_module)
+            agent_registry = agent_module.AgentRegistry(store.data_dir)
+    except Exception as exc:
+        logger.warning("Rariflat agent ranking unavailable: %s", exc)
+
+    def agent_register(args, **kwargs):
+        args = args if isinstance(args, dict) else {}
+        if agent_registry is None:
+            return json.dumps({"error": "Agent ranking module unavailable."})
+        try:
+            item = agent_registry.register(
+                args.get("agent_id"), args.get("name"), args.get("kind"),
+                args.get("capabilities"), args.get("source"),
+                endpoint=args.get("endpoint", ""), install_ref=args.get("install_ref", ""),
+                description=args.get("description", ""),
+            )
+            return json.dumps({"registered": True, "agent": item,
+                               "message": "Registered only; no install or connection was performed."})
+        except (TypeError, ValueError) as exc:
+            return json.dumps({"registered": False, "error": str(exc)})
+
+    def agent_complete(args, **kwargs):
+        args = args if isinstance(args, dict) else {}
+        if agent_registry is None:
+            return json.dumps({"error": "Agent ranking module unavailable."})
+        try:
+            item = agent_registry.record(
+                args.get("agent_id"), args.get("task"), args.get("success"),
+                quality=args.get("quality"), duration_seconds=args.get("duration_seconds"),
+            )
+            return json.dumps({"recorded": True, "agent": item,
+                               "message": "Completion recorded from the supplied outcome; use only after a task actually finishes."})
+        except (TypeError, ValueError) as exc:
+            return json.dumps({"recorded": False, "error": str(exc)})
+
+    def agent_rank(args, **kwargs):
+        args = args if isinstance(args, dict) else {}
+        if agent_registry is None:
+            return json.dumps({"error": "Agent ranking module unavailable."})
+        return json.dumps({
+            "router_type": "hermes_and_a2a_agent_recommender",
+            "dispatches_to_agent": False,
+            "installs_agent": False,
+            "recommended": agent_registry.rank(str(args.get("task") or "")),
+            "message": "Advisory ranking only. Unranked agents lack five observed completed tasks.",
+        })
+
     def route_skills(args, **kwargs):
         args = args if isinstance(args, dict) else {}
         task = str(args.get("task") or "").strip()
@@ -579,6 +635,26 @@ def register(ctx):
         blocked = store.guard_enabled and not _is_own_tool(tool) and streak >= _guard_threshold()
         return json.dumps({"tool": tool, "guard_enabled": store.guard_enabled, "fail_streak": streak, "blocked": blocked,
                            "message": f"{tool} would be blocked." if blocked else f"{tool} is allowed."})
+
+    ctx.register_tool(name="rariflat_agent_register", toolset="rariflat",
+        schema={"name": "rariflat_agent_register", "description": "Register a Hermes catalog agent or A2A agent for local ranking. Does not install, connect, fetch remote cards, or execute agents.", "parameters": {"type": "object", "properties": {
+            "agent_id": {"type": "string"}, "name": {"type": "string"},
+            "kind": {"type": "string", "enum": ["hermes", "a2a"]},
+            "capabilities": {"type": "array", "items": {"type": "string"}},
+            "source": {"type": "string"}, "endpoint": {"type": "string"},
+            "install_ref": {"type": "string"}, "description": {"type": "string"}},
+            "required": ["agent_id", "name", "kind", "capabilities", "source"]}},
+        handler=agent_register)
+    ctx.register_tool(name="rariflat_agent_complete", toolset="rariflat",
+        schema={"name": "rariflat_agent_complete", "description": "Record a real completed agent task outcome to update observed performance rates. Call only after completion.", "parameters": {"type": "object", "properties": {
+            "agent_id": {"type": "string"}, "task": {"type": "string"},
+            "success": {"type": "boolean"}, "quality": {"type": "number"},
+            "duration_seconds": {"type": "number"}},
+            "required": ["agent_id", "task", "success"]}},
+        handler=agent_complete)
+    ctx.register_tool(name="rariflat_agent_rank", toolset="rariflat",
+        schema={"name": "rariflat_agent_rank", "description": "Rank registered Hermes and A2A agents by requested task fit and observed completed-task performance. Advisory only; no dispatch or installation.", "parameters": {"type": "object", "properties": {"task": {"type": "string"}}, "required": ["task"]}},
+        handler=agent_rank)
 
     ctx.register_tool(name="rariflat_route", toolset="rariflat",
         schema={"name": "rariflat_route", "description": "Rank and recommend a Hermes tool/skill using task fit, reliability, rarity, and restraint. Advisory only; does not dispatch tasks to agents.", "parameters": {"type": "object", "properties": {"task": {"type": "string"}}, "required": ["task"]}},
