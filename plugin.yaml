@@ -1,6 +1,6 @@
 name: rariflat
 version: "2.0.0"
-description: Tool-call status, explainable tool ranking, evidence-based Hermes and A2A agent ranking with live completion rates, and an opt-in loop guard.
+description: Live tool-call status, reliability scoring, task-aware recommendations using measured rarity and restraint, evidence-based Hermes/A2A agent ranking, and an opt-in failure-streak and repeated-call loop guard.
 manifest_version: 2
 api_version: 1
 license: MIT
