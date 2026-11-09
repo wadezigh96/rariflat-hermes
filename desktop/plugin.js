@@ -279,9 +279,14 @@ function AgentRankingCard({ ranking }) {
             jsx('p', { className: 'mt-2 text-[10px] opacity-60', children: agent.evidence === 'insufficient_observations'
               ? 'Not ranked by tier yet · needs at least 5 real completions.'
               : 'Rates calculated from recorded completed tasks.' }),
+            jsx('p', { className: 'mt-1 break-all text-[10px] opacity-70', children: `Source: ${agent.source || 'not provided'}` }),
+            jsx('p', { className: 'break-all text-[10px] opacity-70', children: agent.kind === 'a2a'
+              ? `Endpoint: ${agent.endpoint || 'not connected'}`
+              : `Install reference: ${agent.install_ref || 'not installed'}` }),
+            jsx('p', { className: 'text-[10px] opacity-60', children: 'Source not independently verified · review before installing or connecting.' }),
           ],
         }, agent.id)),
-      }) : jsx('p', { className: 'mt-3 text-xs opacity-70', children: 'No agents registered yet. Register a verified Hermes catalog agent or A2A Agent Card first.' }),
+      }) : jsx('p', { className: 'mt-3 text-xs opacity-70', children: 'No agents registered yet. Register a Hermes catalog entry or A2A Agent Card first.' }),
     ],
   })
 }
