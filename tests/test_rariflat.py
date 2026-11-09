@@ -572,7 +572,9 @@ def test_subagent_lifecycle_records_real_completion_metrics(rf, ctx):
     assert ranked["recommended"][0]["tier"] == "UNRANKED"
 
 
-def test_subagent_lifecycle_correlates_fallback_subagent_id(rf, ctx):
+def test_subagent_lifecycle_without_shared_session_id_is_not_misattributed(rf, ctx):
+    # child_subagent_id is present at start, but subagent_stop only guarantees
+    # child session IDs. Do not guess which concurrent child completed.
     ctx.hooks["subagent_start"](
         child_session_id=None,
         child_subagent_id="child-subagent-fallback",
@@ -581,17 +583,13 @@ def test_subagent_lifecycle_correlates_fallback_subagent_id(rf, ctx):
     )
     ctx.hooks["subagent_stop"](
         child_session_id=None,
-        child_subagent_id="child-subagent-fallback",
         child_role="researcher",
         child_summary="Found official plugin documentation.",
         child_status="completed",
         duration_ms=1500,
     )
     ranked = json.loads(ctx.tools["rariflat_agent_rank"]({"task": "research plugin documentation"}))
-    item = next(x for x in ranked["recommended"] if x["id"] == "hermes-runtime-researcher")
-    assert item["observations"] == 1
-    assert item["success_rate"] == 100
-    assert item["average_duration_seconds"] == 1.5
+    assert all(x["id"] != "hermes-runtime-researcher" for x in ranked["recommended"])
 
 
 def test_failed_subagent_is_recorded_as_failed_completion(rf, ctx):
