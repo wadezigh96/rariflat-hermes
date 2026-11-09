@@ -30,6 +30,9 @@ Each recommendation includes the measured factor values, use/repeat counts, and 
 
 ## Quick start
 
+For the reproducible Android-friendly Hermes CLI demonstration, see [docs/LIVE_DEMO.md](docs/LIVE_DEMO.md) and run `bash scripts/live-demo.sh` from a source checkout.
+
+
 ### 1. Requirements
 
 - A working Hermes Agent installation with plugin support.
