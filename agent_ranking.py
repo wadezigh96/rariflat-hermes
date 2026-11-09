@@ -277,7 +277,7 @@ class AgentRegistry:
             fit = 100.0 * len(task_tokens & caps) / max(1, len(task_tokens)) if task_tokens else item["average_task_fit"]
             # Ranking blends current task capability fit with measured historical score.
             item["requested_task_fit"] = round(fit, 2)
-            item["ranking_score"] = round(0.6 * fit + 0.4 * item["score"], 2) if item["observations"] >= 5 else round(fit * 0.6, 2)
+            item["ranking_score"] = round(0.6 * fit + 0.4 * item["score"], 2) if item["observations"] >= 5 else round(fit, 2)
             rows.append(item)
         rows.sort(key=lambda x: (TIER_ORDER.get(x["tier"], 0), x["ranking_score"], x["observations"], x["name"].lower()), reverse=True)
         for index, row in enumerate(rows, 1):
