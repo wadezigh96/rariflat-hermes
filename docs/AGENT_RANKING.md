@@ -44,4 +44,4 @@ Call `rariflat_agent_rank` with the user's task. It ranks both Hermes and A2A re
 
 ## Installation and connection
 
-This release intentionally does not execute arbitrary install instructions or connect to untrusted A2A endpoints. The Desktop pane shows the source and status so the user can review the origin first. Installation/connection requires a separate explicit, reviewed action. A registered agent is not represented as installed or connected.
+For registered Hermes agents with a validated GitHub `owner/repository` install reference, the Desktop card offers the official `hermes://plugin/install?...&enable=1` deep link. Hermes Desktop opens its own install review and confirmation flow; Rariflat never clones, runs shell commands, grants capabilities, or installs silently. Runtime-observed subagent roles are not installable plugins. For A2A agents, the card opens the declared Agent Card source for review only; this release does not implement an A2A connection handshake. Installation/connection always requires a separate explicit, reviewed action. A registered agent is not represented as installed or connected.
