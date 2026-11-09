@@ -33,6 +33,23 @@ def _tier(score, observations):
     return "DEVELOPING"
 
 
+def _is_clean_https_url(value):
+    try:
+        parsed = urlparse(value)
+        # Accessing .port also validates that any supplied port is numeric and in range.
+        parsed.port
+    except ValueError:
+        return False
+    return (
+        parsed.scheme == "https"
+        and bool(parsed.hostname)
+        and parsed.username is None
+        and parsed.password is None
+        and not parsed.query
+        and not parsed.fragment
+    )
+
+
 class AgentRegistry:
     """Small local registry; no network calls, installs, or agent execution."""
 
@@ -83,11 +100,9 @@ class AgentRegistry:
         if not name or kind not in {"hermes", "a2a"} or not caps or not source:
             raise ValueError("name, kind (hermes/a2a), capabilities, and source are required")
         if kind == "a2a":
-            parsed = urlparse(endpoint)
-            source_url = urlparse(source)
-            if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password or parsed.query or parsed.fragment:
+            if not _is_clean_https_url(endpoint):
                 raise ValueError("A2A endpoint must be HTTPS and must not embed credentials, query tokens, or fragments")
-            if source_url.scheme != "https" or not source_url.netloc or source_url.username or source_url.password or source_url.query or source_url.fragment:
+            if not _is_clean_https_url(source):
                 raise ValueError("A2A Agent Card source must be a clean HTTPS URL without embedded credentials or query tokens")
         elif install_ref != "runtime:subagent":
             if not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}", install_ref):
@@ -96,12 +111,19 @@ class AgentRegistry:
             if self._load_error:
                 raise RuntimeError("Agent registry data is unreadable; refusing changes")
             previous = self.agents.get(agent_id, {})
+            same_identity = (
+                previous.get("kind") == kind
+                and previous.get("source") == source
+                and previous.get("endpoint", "") == endpoint
+                and previous.get("install_ref", "") == install_ref
+                and previous.get("capabilities") == caps
+            )
             self.agents[agent_id] = {
                 "id": agent_id, "name": name, "kind": kind,
                 "capabilities": caps, "source": source, "endpoint": endpoint,
                 "install_ref": install_ref, "description": description,
-                "registered_at": previous.get("registered_at", time.time()),
-                "observations": previous.get("observations", []),
+                "registered_at": previous.get("registered_at", time.time()) if same_identity else time.time(),
+                "observations": previous.get("observations", []) if same_identity else [],
                 "status": "source_unverified_not_installed" if kind == "hermes" else "source_unverified_not_connected",
             }
             self._save()

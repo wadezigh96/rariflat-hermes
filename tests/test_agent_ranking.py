@@ -132,6 +132,39 @@ def test_rejects_a2a_urls_with_query_tokens_or_fragments(tmp_path):
                           endpoint="https://example.org/agent#secret")
 
 
+def test_rejects_a2a_urls_without_valid_hosts_or_with_empty_credentials(tmp_path):
+    registry = AgentRegistry(tmp_path)
+    invalid_urls = ["https://@", "https://:443", "https://user:@example.org", "https://example.org:bad"]
+    for index, url in enumerate(invalid_urls):
+        with pytest.raises(ValueError):
+            registry.register(f"bad-{index}", "Bad", "a2a", ["research"],
+                              "https://example.org/card", endpoint=url)
+    with pytest.raises(ValueError):
+        registry.register("bad-source", "Bad", "a2a", ["research"],
+                          "https://@", endpoint="https://example.org")
+
+
+def test_re_registration_with_new_identity_does_not_inherit_evidence(tmp_path):
+    registry = AgentRegistry(tmp_path)
+    registry.register("agent-a", "Researcher", "a2a", ["research"],
+                      "https://a.example/card", endpoint="https://a.example")
+    for _ in range(5):
+        registry.record("agent-a", "research", True, quality=100)
+    assert registry.summary("agent-a")["tier"] == "MYTHIC"
+
+    same_agent = registry.register("agent-a", "Research lead", "a2a", ["research"],
+                                    "https://a.example/card", endpoint="https://a.example")
+    assert same_agent["observations"] == 5
+    assert same_agent["tier"] == "MYTHIC"
+
+    item = registry.register("agent-a", "Unrelated agent", "a2a", ["translation"],
+                             "https://b.example/card", endpoint="https://b.example")
+
+    assert item["observations"] == 0
+    assert item["tier"] == "UNRANKED"
+    assert item["evidence"] == "insufficient_observations"
+
+
 def test_hermes_install_ref_is_repo_slug_not_arbitrary_command(tmp_path):
     registry = AgentRegistry(tmp_path)
     with pytest.raises(ValueError):
