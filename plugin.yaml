@@ -6,7 +6,7 @@ api_version: 1
 license: MIT
 homepage: https://github.com/wadezigh96/rariflat-hermes
 tags: [status, router, agent-ranking, reliability, guard, desktop]
-requires_hermes: ">=0.21.6"
+requires_hermes: ">=0.22.6"
 provides_tools:
   - rariflat_route
   - rariflat_status

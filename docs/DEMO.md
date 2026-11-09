@@ -8,7 +8,7 @@ Record this with the actual Hermes Agent runtime and, if available, the compatib
 
 **0:08–0:24 — Live activity**
 
-Run ordinary calls with at least three different tool/skill names supported by the runtime (for example, web/search, terminal, and file). Show the corresponding characters update in the Desktop pane. Briefly show `/rariflat` with the recorded usage and success counts. This gives the router enough candidates to display two alternatives; if fewer tools are available, show the alternatives it actually returns rather than manufacturing history.
+Run ordinary calls with at least three different tool names observed by the hooks (for example, web/search, terminal, and file). Show the corresponding characters update in the Desktop pane. Briefly show `/rariflat` with the recorded usage and success counts. This gives the router enough candidates to display two alternatives; if fewer tools are available, show the alternatives it actually returns rather than manufacturing history.
 
 **0:24–0:43 — Decision Card**
 
