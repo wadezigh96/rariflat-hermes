@@ -43,7 +43,7 @@ Each recommendation includes the measured factor values, use/repeat counts, and 
 Until the official catalog PR is accepted and published, install the reviewed source revision directly:
 
 ```bash
-hermes plugins install wadezigh96/rariflat-hermes --ref 2d14eaccd360c6ec1c7ff0892a9ef82f2120c399 --enable
+hermes plugins install wadezigh96/rariflat-hermes --ref 61347f55da89996e36a1b94b3c0c35fe878c4776 --enable
 ```
 
 The `--ref` value is a full immutable 40-character commit SHA. The command uses Hermes' documented Git installation flow; `--enable` skips the enable prompt. Review and accept any dependency-consent prompt shown by Hermes. After the catalog listing is accepted, users can install by catalog name with `hermes plugins install rariflat --enable`.
