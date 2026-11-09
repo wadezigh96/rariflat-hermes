@@ -509,6 +509,34 @@ def _emit_route(recommended: list[dict]) -> None:
         logger.debug("Rariflat Desktop route event unavailable: %s", exc)
 
 
+
+def _emit_agent_rank(recommended: list[dict]) -> None:
+    """Send a bounded, privacy-safe agent ranking summary to the Desktop pane."""
+    try:
+        from hermes_cli.plugin_events import broadcast_plugin_event
+        rows = []
+        for item in recommended[:10]:
+            if not isinstance(item, dict):
+                continue
+            rows.append({
+                "id": str(item.get("id") or "")[:80],
+                "name": str(item.get("name") or "")[:100],
+                "kind": item.get("kind") if item.get("kind") in {"hermes", "a2a"} else "unknown",
+                "tier": item.get("tier") if item.get("tier") in {"MYTHIC", "LEGEND", "EPIC", "DEVELOPING", "UNRANKED"} else "UNRANKED",
+                "score": max(0.0, min(100.0, float(item.get("ranking_score") or 0))),
+                "observations": max(0, min(1000000, int(item.get("observations") or 0))),
+                "success_rate": max(0.0, min(100.0, float(item.get("success_rate") or 0))),
+                "average_task_fit": max(0.0, min(100.0, float(item.get("average_task_fit") or 0))),
+                "average_quality": item.get("average_quality"),
+                "average_duration_seconds": item.get("average_duration_seconds"),
+                "status": str(item.get("status") or "")[:60],
+                "evidence": str(item.get("evidence") or "")[:60],
+            })
+        broadcast_plugin_event("rariflat", "agent_rank", {"recommended": rows})
+    except Exception as exc:
+        logger.debug("Rariflat agent ranking Desktop event unavailable: %s", exc)
+
+
 def _guard_threshold() -> int:
     try:
         return max(1, min(100, int(os.getenv("RARIFLAT_FAIL_STREAK", "3"))))
@@ -578,11 +606,13 @@ def register(ctx):
         args = args if isinstance(args, dict) else {}
         if agent_registry is None:
             return json.dumps({"error": "Agent ranking module unavailable."})
+        recommended = agent_registry.rank(str(args.get("task") or ""))
+        _emit_agent_rank(recommended)
         return json.dumps({
             "router_type": "hermes_and_a2a_agent_recommender",
             "dispatches_to_agent": False,
             "installs_agent": False,
-            "recommended": agent_registry.rank(str(args.get("task") or "")),
+            "recommended": recommended,
             "message": "Advisory ranking only. Unranked agents lack five observed completed tasks.",
         })
 
