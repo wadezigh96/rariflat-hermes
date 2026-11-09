@@ -41,6 +41,7 @@ class AgentRegistry:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self.agents = {}
+        self._load_error = False
         self._load()
 
     def _load(self):
@@ -52,10 +53,13 @@ class AgentRegistry:
         except FileNotFoundError:
             pass
         except (OSError, ValueError, TypeError):
-            # Keep the registry untouched; never quarantine or overwrite malformed data.
+            # Fail closed: do not silently replace a malformed local registry.
+            self._load_error = True
             self.agents = {}
 
     def _save(self):
+        if self._load_error:
+            raise RuntimeError("Agent registry data is unreadable; refusing to overwrite it")
         payload = json.dumps({"schema_version": 1, "agents": self.agents},
                              ensure_ascii=False, indent=2)
         tmp = self.path.with_suffix(".json.tmp")
@@ -85,6 +89,8 @@ class AgentRegistry:
         elif not install_ref:
             raise ValueError("Hermes agents require a verifiable install_ref (repository or catalog reference)")
         with self._lock:
+            if self._load_error:
+                raise RuntimeError("Agent registry data is unreadable; refusing changes")
             previous = self.agents.get(agent_id, {})
             self.agents[agent_id] = {
                 "id": agent_id, "name": name, "kind": kind,
@@ -113,6 +119,8 @@ class AgentRegistry:
             if not 0 <= duration <= 7 * 24 * 3600:
                 raise ValueError("duration_seconds must be between 0 and 604800")
         with self._lock:
+            if self._load_error:
+                raise RuntimeError("Agent registry data is unreadable; refusing changes")
             agent = self.agents.get(agent_id)
             if not agent:
                 raise ValueError("agent is not registered")
@@ -150,7 +158,7 @@ class AgentRegistry:
             "average_task_fit": round(avg_fit, 2),
             "average_quality": round(avg_quality, 2) if avg_quality is not None else None,
             "average_duration_seconds": round(sum(durations) / len(durations), 2) if durations else None,
-            "score": round(score, 2), "tier": _tier(score, n),
+            "score": round(score, 2), "performance_score": round(score, 2), "tier": _tier(score, n),
             "evidence": "observed_completions" if n >= 5 else "insufficient_observations",
             "rate_note": "Rates use locally recorded completed tasks; quality is optional and omitted when unavailable.",
         }
