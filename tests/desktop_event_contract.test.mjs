@@ -174,3 +174,10 @@ test('Desktop pane exposes live Hermes and A2A agent tier rankings', () => {
   assert.match(pluginSource, /completed tasks/)
   assert.match(pluginSource, /no automatic install or dispatch/)
 })
+
+
+test('Desktop agent ranking separates requested fit and historical performance', () => {
+  assert.match(pluginSource, /agent\.requested_task_fit/)
+  assert.match(pluginSource, /agent\.performance_score/)
+  assert.match(pluginSource, /Source not independently verified/)
+})
