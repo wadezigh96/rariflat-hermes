@@ -165,3 +165,12 @@ test('keeps display counts consistent when the event marks saturation', () => {
   assert.equal(getEvidenceStatus(item).countsCapped, true)
   assert.match(getEvidenceStatus(item).label, /At least 1,000,000 observed calls/)
 })
+
+
+test('Desktop pane exposes live Hermes and A2A agent tier rankings', () => {
+  assert.match(pluginSource, /function AgentRankingCard\(/)
+  assert.match(pluginSource, /plugin\.rariflat\.agent_rank/)
+  assert.match(pluginSource, /MYTHIC|LEGEND|EPIC/)
+  assert.match(pluginSource, /completed tasks/)
+  assert.match(pluginSource, /no automatic install or dispatch/)
+})
