@@ -702,8 +702,8 @@ def register(ctx):
             active_subagents.pop(next(iter(active_subagents)))
         return None
 
-    def on_subagent_stop(child_session_id=None, child_role=None,
-                         child_summary=None, child_status="error",
+    def on_subagent_stop(child_session_id=None, child_subagent_id=None,
+                         child_role=None, child_summary=None, child_status="error",
                          duration_ms=None, **kwargs):
         if agent_registry is None:
             return None
