@@ -27,12 +27,11 @@ if [[ -d "$PLUGIN_DIR" ]]; then
   mkdir -p "$(dirname "$BACKUP")"
   cp -a "$PLUGIN_DIR" "$BACKUP"
   echo "Existing plugin backed up to: $BACKUP"
-  hermes plugins install "$REPO" --force --ref "$REF"
+  hermes plugins install "$REPO" --force --ref "$REF" --enable
 else
-  hermes plugins install "$REPO" --ref "$REF"
+  hermes plugins install "$REPO" --ref "$REF" --enable
 fi
 
-hermes plugins enable rariflat
 hermes plugins list
 hermes plugins doctor "$PLUGIN_DIR"
 
@@ -50,4 +49,4 @@ PROMPT='Run a real Rariflat demonstration in this Hermes session.
 5. Clearly state whether the history is sufficient for meaningful recommendations. Do not claim the router dispatches tasks or executes recommendations; it is advisory only.
 Do not modify files, install packages, access secrets, or perform network actions beyond the harmless search call.'
 
-hermes chat -q "$PROMPT" --oneshot
+hermes chat -q "$PROMPT" --max-turns 12
