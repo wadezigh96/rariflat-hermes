@@ -331,7 +331,10 @@ class Store:
             return False
         stamp = float(now if now is not None else time.time())
         try:
-            signature = json.dumps(args if isinstance(args, (dict, list, str, int, float, bool)) else str(args), sort_keys=True, default=str)
+            # Use the same safe fingerprint normalization as ranking/learning so
+            # credentials and secrets do not form distinct loop signatures.
+            safe_args = _safe_fingerprint_value(args)
+            signature = json.dumps(safe_args, sort_keys=True, default=str)
         except (TypeError, ValueError):
             signature = repr(args)
         key = tool + ":" + hashlib.sha256(signature.encode("utf-8")).hexdigest()
@@ -568,8 +571,9 @@ def register(ctx):
                                 "successes": data.get("successes", 0), "failures": data.get("failures", 0),
                                 "first_used": data.get("first_used"), "last_used": data.get("last_used"),
                                 **_recent_usage_metrics(data)}
-                               for name, data in sorted(store.tools.items(), key=lambda pair: pair[1].get("uses", 0), reverse=True)
-                           ]})
+                               for name, data in sorted(store.tools.items(), key=lambda pair: pair[1].get("uses", 0), reverse=True)[:100]
+                           ],
+                           "tools_activity_truncated": len(store.tools) > 100})
 
     def guard_check(args, **kwargs):
         args = args if isinstance(args, dict) else {}
@@ -650,8 +654,12 @@ def register(ctx):
         if not store.tools:
             lines.append("No tools tracked yet. Make some calls!")
         else:
-            for i, (name, data) in enumerate(sorted(store.tools.items(), key=lambda x: x[1].get("uses", 0), reverse=True), 1):
+            ranked = sorted(store.tools.items(), key=lambda x: x[1].get("uses", 0), reverse=True)
+            shown = ranked[:50]
+            for i, (name, data) in enumerate(shown, 1):
                 lines.append(f"{i}. {name} · success {data.get('successes', 0)}/{data.get('uses', 0)} · fail streak {data.get('fail_streak', 0)}")
+            if len(ranked) > 50:
+                lines.append(f"... and {len(ranked) - 50} more tools (truncated for response size)")
         return "\n".join(lines)
 
     ctx.register_command(name="rariflat", handler=status_cmd, description="Show Rariflat reliability and guard status")

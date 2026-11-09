@@ -149,6 +149,20 @@ def test_loop_detector_opt_in(rf, ctx, monkeypatch):
     assert ctx.hooks["pre_tool_call"]("browser", {"url": "https://example.com"})["action"] == "block"
 
 
+def test_loop_detector_normalizes_secrets(rf, monkeypatch):
+    """Loop signatures must use the same safe fingerprint as ranking so rotating secrets do not create unique keys."""
+    store = rf._get_store()
+    store.set_guard(True)
+    monkeypatch.setenv("RARIFLAT_LOOP_REPEAT", "3")
+    monkeypatch.setenv("RARIFLAT_LOOP_WINDOW", "30")
+    base = {"query": "search docs", "api_key": "sk-secret-1"}
+    rotated = {"query": "search docs", "api_key": "sk-secret-2"}
+    # Same safe fingerprint after redaction, so they count as the same call.
+    assert store.loop_detected("web_search", base, now=1000.0) is False
+    assert store.loop_detected("web_search", rotated, now=1001.0) is False
+    assert store.loop_detected("web_search", {"query": "search docs", "api_key": "sk-secret-3"}, now=1002.0) is True
+
+
 def test_event_emitter_is_optional(rf, ctx):
     assert ctx.hooks["pre_tool_call"]("browser", {}) is None
 
