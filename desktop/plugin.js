@@ -251,7 +251,7 @@ function AgentRankingCard({ ranking }) {
         jsx('h2', { className: 'font-semibold', children: 'Agent ranking' }),
         jsx('span', { className: 'rounded-full border px-2 py-0.5 text-[10px]', children: 'Live on-data' }),
       ] }),
-      jsx('p', { className: 'mt-1 text-[10px] opacity-70', children: 'Hermes catalog + A2A · recommendations only; no automatic install or dispatch.' }),
+      jsx('p', { className: 'mt-1 text-[10px] opacity-70', children: 'Hermes catalog + A2A · MYTHIC > LEGEND > EPIC · recommendations only; no automatic install or dispatch.' }),
       ranking.recommended.length ? jsx('ol', {
         className: 'mt-3 space-y-3',
         children: ranking.recommended.map((agent) => jsxs('li', {
