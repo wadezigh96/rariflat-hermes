@@ -16,10 +16,10 @@ Rariflat is a Hermes Agent plugin that makes tool activity visible, learns from 
 Until the Rariflat entry is accepted into the official Hermes plugin catalog, install the public repository at the validated immutable source commit:
 
 ```bash
-hermes plugins install wadezigh96/rariflat-hermes --ref 911a10bac40ff536115f7485d4bba42186f36e83 --enable
+hermes plugins install wadezigh96/rariflat-hermes --ref c5d6fba59c85eddfe75e2d890dfd0bc678060aa6 --enable
 ```
 
-The full 40-character SHA pins the install to the latest public source revision checked during this audit. Do not replace it with `main`, a branch name, or a shortened SHA when you need a reproducible install. After publishing the local audit fixes, update this command and the official catalog PR to the exact pushed commit.
+The full 40-character SHA pins the install to the audited public source commit, which passed the Hermes v0.23.0 plugin validator and Doctor. Do not replace it with `main`, a branch name, or a shortened SHA when you need a reproducible install. For future source changes, update this command and the official catalog PR to the exact pushed and validated commit.
 
 If the catalog listing is approved and published later, the shorter catalog-based flow will be:
 

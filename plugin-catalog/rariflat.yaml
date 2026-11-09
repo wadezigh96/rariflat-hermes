@@ -11,7 +11,7 @@ description: >-
   fingerprinting. Raw arguments and credentials are not intentionally
   persisted. The plugin initiates no network requests, telemetry, or subprocesses.
 repo: https://github.com/wadezigh96/rariflat-hermes
-sha: 911a10bac40ff536115f7485d4bba42186f36e83
+sha: c5d6fba59c85eddfe75e2d890dfd0bc678060aa6
 version: "2.0.0"
 maintainer: wadezigh96
 tier: community
