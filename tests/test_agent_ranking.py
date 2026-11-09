@@ -220,3 +220,10 @@ def test_valid_json_with_invalid_registry_schema_fails_closed(tmp_path):
         registry.register("agent-b", "Researcher", "a2a", ["research"],
                           "https://b.example/card", endpoint="https://b.example")
     assert path.exists()
+
+
+
+def test_summary_unknown_agent_returns_validation_error(tmp_path):
+    registry = AgentRegistry(tmp_path)
+    with pytest.raises(ValueError, match="agent is not registered"):
+        registry.summary("missing-agent")
