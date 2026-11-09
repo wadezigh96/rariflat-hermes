@@ -54,6 +54,7 @@ def test_rank_prioritizes_capability_fit_but_discloses_low_history(tmp_path):
     assert rows[0]["tier"] == "UNRANKED"
     assert rows[0]["evidence"] == "insufficient_observations"
     assert rows[0]["requested_task_fit"] == 100
+    assert rows[0]["ranking_score"] == 100
 
 
 def test_rejects_non_https_a2a_and_hermes_without_install_reference(tmp_path):
