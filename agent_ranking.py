@@ -91,7 +91,7 @@ class AgentRegistry:
                 "install_ref": install_ref, "description": description,
                 "registered_at": previous.get("registered_at", time.time()),
                 "observations": previous.get("observations", []),
-                "status": "registered_not_installed" if kind == "hermes" else "registered_not_connected",
+                "status": "source_unverified_not_installed" if kind == "hermes" else "source_unverified_not_connected",
             }
             self._save()
         return self.summary(agent_id)
@@ -143,7 +143,7 @@ class AgentRegistry:
             "id": agent["id"], "name": agent["name"], "kind": agent["kind"],
             "capabilities": agent["capabilities"], "source": agent["source"],
             "endpoint": agent.get("endpoint", ""), "install_ref": agent.get("install_ref", ""),
-            "description": agent.get("description", ""), "status": agent["status"],
+            "description": agent.get("description", ""), "status": agent["status"],\n            "source_verified": False,
             "observations": n, "success_rate": round(success_rate, 2),
             "average_task_fit": round(avg_fit, 2),
             "average_quality": round(avg_quality, 2) if avg_quality is not None else None,
