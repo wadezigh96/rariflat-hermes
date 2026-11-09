@@ -20,7 +20,7 @@ _VERBOSE = os.getenv("RARIFLAT_VERBOSE", "").strip().lower() in {"1", "true", "y
 if _VERBOSE:
     logger.setLevel(logging.INFO)
 
-OWN_TOOLS = {"rariflat_route", "rariflat_status", "rariflat_guard"}
+OWN_TOOLS = {"rariflat_route", "rariflat_status", "rariflat_guard", "rariflat_agent_register", "rariflat_agent_complete", "rariflat_agent_rank"}
 STOP_WORDS = {"a", "an", "and", "are", "as", "at", "by", "for", "from", "how", "i", "in", "into", "is", "it", "of", "on", "or", "please", "the", "to", "use", "with", "check", "find", "do", "this", "that", "me", "my"}
 FAILURE_PREFIXES = ("error:", "error ", "failed:", "failed ", "failure:", "failure ", "command not found", "no such file or directory", "permission denied", "traceback (most recent call last)", "exception:", "timed out", "timeout:")
 _ROUTE_WEIGHTS = {"task_fit": 0.40, "reliability": 0.25, "rarity": 0.20, "restraint": 0.15}
@@ -584,6 +584,9 @@ def register(ctx):
                 endpoint=args.get("endpoint", ""), install_ref=args.get("install_ref", ""),
                 description=args.get("description", ""),
             )
+            return json.dumps({"registered": True, "agent": item,
+                               "message": "Registered only; no install or connection was performed."})
+            _emit_agent_rank(agent_registry.rank(""))
             return json.dumps({"registered": True, "agent": item,
                                "message": "Registered only; no install or connection was performed."})
         except (TypeError, ValueError) as exc:
