@@ -54,9 +54,23 @@ class AgentRegistry:
     """Small local registry; no network calls, installs, or agent execution."""
 
     def __init__(self, data_dir):
-        self.path = Path(data_dir) / "agents.json"
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._data_dir_provider = data_dir if callable(data_dir) else None
+        self.data_dir = Path(data_dir() if callable(data_dir) else data_dir).expanduser()
+        self.path = self.data_dir / "agents.json"
         self._lock = threading.RLock()
+        self.agents = {}
+        self._load_error = False
+        self._load()
+
+    def _refresh_profile(self):
+        """Follow Hermes' active profile data directory before every operation."""
+        if self._data_dir_provider is None:
+            return
+        next_dir = Path(self._data_dir_provider()).expanduser()
+        if next_dir == self.data_dir:
+            return
+        self.data_dir = next_dir
+        self.path = next_dir / "agents.json"
         self.agents = {}
         self._load_error = False
         self._load()
@@ -64,9 +78,30 @@ class AgentRegistry:
     def _load(self):
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
-            if isinstance(raw, dict) and isinstance(raw.get("agents"), dict):
-                self.agents = {k: v for k, v in raw["agents"].items()
-                               if isinstance(k, str) and isinstance(v, dict)}
+            if (not isinstance(raw, dict) or raw.get("schema_version") != 1
+                    or not isinstance(raw.get("agents"), dict)):
+                raise ValueError("unsupported or invalid agent registry schema")
+            required = {"id", "name", "kind", "capabilities", "source", "status", "observations"}
+            validated = {}
+            for key, agent in raw["agents"].items():
+                if (not isinstance(key, str) or not isinstance(agent, dict)
+                        or not required.issubset(agent) or agent.get("id") != key
+                        or not isinstance(agent.get("name"), str)
+                        or agent.get("kind") not in {"hermes", "a2a"}
+                        or not isinstance(agent.get("capabilities"), list)
+                        or not all(isinstance(x, str) for x in agent["capabilities"])
+                        or not isinstance(agent.get("source"), str)
+                        or not isinstance(agent.get("status"), str)
+                        or not isinstance(agent.get("observations"), list)):
+                    raise ValueError("invalid agent registry record")
+                for event in agent["observations"]:
+                    if (not isinstance(event, dict)
+                            or not isinstance(event.get("success"), bool)
+                            or not isinstance(event.get("timestamp"), (int, float))
+                            or not isinstance(event.get("task_fit"), (int, float))):
+                        raise ValueError("invalid agent observation")
+                validated[key] = agent
+            self.agents = validated
         except FileNotFoundError:
             pass
         except (OSError, ValueError, TypeError):
@@ -85,6 +120,8 @@ class AgentRegistry:
 
     def register(self, agent_id, name, kind, capabilities, source,
                  endpoint="", install_ref="", description=""):
+        with self._lock:
+            self._refresh_profile()
         agent_id = str(agent_id or "").strip()
         name = str(name or "").strip()[:100]
         kind = str(kind or "").lower().strip()
@@ -104,9 +141,20 @@ class AgentRegistry:
                 raise ValueError("A2A endpoint must be HTTPS and must not embed credentials, query tokens, or fragments")
             if not _is_clean_https_url(source):
                 raise ValueError("A2A Agent Card source must be a clean HTTPS URL without embedded credentials or query tokens")
-        elif install_ref != "runtime:subagent":
+        elif install_ref == "runtime:subagent":
+            if source != "Hermes subagent lifecycle hook (runtime-observed)":
+                raise ValueError("runtime Hermes source must use the fixed lifecycle-hook descriptor")
+        else:
             if not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}", install_ref):
                 raise ValueError("Hermes install_ref must be a GitHub owner/repository slug; arbitrary URLs and shell commands are not accepted")
+            if not _is_clean_https_url(source):
+                raise ValueError("Hermes source must be a clean HTTPS GitHub repository URL")
+            parsed = urlparse(source)
+            parts = [part for part in parsed.path.split("/") if part]
+            if parsed.hostname.lower() != "github.com" or len(parts) != 2:
+                raise ValueError("Hermes source must point to https://github.com/<owner>/<repository>")
+            if "/".join(parts) != install_ref:
+                raise ValueError("Hermes source repository must match install_ref")
         with self._lock:
             if self._load_error:
                 raise RuntimeError("Agent registry data is unreadable; refusing changes")
@@ -130,6 +178,8 @@ class AgentRegistry:
         return self.summary(agent_id)
 
     def register_runtime(self, role):
+        with self._lock:
+            self._refresh_profile()
         """Register a Hermes delegated role observed directly from runtime hooks."""
         role = str(role or "unassigned").strip()[:60] or "unassigned"
         safe_role = re.sub(r"[^a-zA-Z0-9._-]+", "-", role).strip("-") or "unassigned"
@@ -149,6 +199,8 @@ class AgentRegistry:
         return agent_id
 
     def record(self, agent_id, task, success, quality=None, duration_seconds=None):
+        with self._lock:
+            self._refresh_profile()
         agent_id = str(agent_id or "").strip()
         task = str(task or "").strip()[:1000]
         if not task or not isinstance(success, bool):
@@ -183,6 +235,8 @@ class AgentRegistry:
         return self.summary(agent_id)
 
     def summary(self, agent_id):
+        with self._lock:
+            self._refresh_profile()
         agent = self.agents[agent_id]
         events = agent.get("observations", [])
         n = len(events)
@@ -209,6 +263,8 @@ class AgentRegistry:
         }
 
     def rank(self, task=""):
+        with self._lock:
+            self._refresh_profile()
         task_tokens = _tokens(task)
         rows = []
         for agent_id, agent in list(self.agents.items()):
