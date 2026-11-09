@@ -16,7 +16,7 @@ Rariflat is a Hermes Agent plugin that makes tool activity visible, learns from 
 Until the Rariflat entry is accepted into the official Hermes plugin catalog, install the public repository at the validated immutable source commit:
 
 ```bash
-hermes plugins install wadezigh96/rariflat-hermes --ref 31c522ddccd32674a474bf8b73273b4605e14b2e --enable
+hermes plugins install wadezigh96/rariflat-hermes --ref c3434bb632707f1bef6b5a95883913bd2aac9595 --enable
 ```
 
 The full 40-character SHA pins the install to a specific source revision. Do not replace it with `main`, a branch name, or a shortened SHA when you need a reproducible install.
