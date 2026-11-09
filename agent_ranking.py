@@ -57,6 +57,7 @@ class AgentRegistry:
         self._data_dir_provider = data_dir if callable(data_dir) else None
         self.data_dir = Path(data_dir() if callable(data_dir) else data_dir).expanduser()
         self.path = self.data_dir / "agents.json"
+        self.data_dir.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self.agents = {}
         self._load_error = False
@@ -71,6 +72,7 @@ class AgentRegistry:
             return
         self.data_dir = next_dir
         self.path = next_dir / "agents.json"
+        self.data_dir.mkdir(parents=True, exist_ok=True)
         self.agents = {}
         self._load_error = False
         self._load()
