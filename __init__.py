@@ -302,6 +302,12 @@ class Store:
         self._last_save = 0.0
         self._load()
 
+    def current_data_dir(self) -> Path:
+        """Return the current profile's plugin data directory."""
+        with self._lock:
+            self._refresh_profile()
+            return self.data_dir
+
     def _load(self) -> None:
         with self._lock:
             if not self.path.exists():
@@ -629,7 +635,7 @@ def register(ctx):
             agent_module = importlib.util.module_from_spec(agent_spec)
             agent_spec.loader.exec_module(agent_module)
             # Follow Hermes' active profile-scoped plugin data directory.
-            agent_registry = agent_module.AgentRegistry(lambda: store.data_dir)
+            agent_registry = agent_module.AgentRegistry(store.current_data_dir)
     except Exception as exc:
         logger.warning("Rariflat agent ranking unavailable: %s", exc)
 
