@@ -71,3 +71,26 @@ def test_persists_agent_records_without_running_install_or_agent(tmp_path):
     reloaded = AgentRegistry(tmp_path)
     assert reloaded.summary("agent-a")["observations"] == 1
     assert reloaded.summary("agent-a")["status"] == "source_unverified_not_connected"
+
+
+def test_corrupt_registry_is_not_overwritten(tmp_path):
+    path = tmp_path / "agents.json"
+    path.write_text("{broken", encoding="utf-8")
+    registry = AgentRegistry(tmp_path)
+    assert registry.rank() == []
+    with pytest.raises(RuntimeError):
+        registry.register("agent-a", "Researcher", "a2a", ["research"],
+                          "https://example.org/card", endpoint="https://example.org")
+    assert path.read_text(encoding="utf-8") == "{broken"
+
+
+def test_task_ranking_and_historical_performance_are_separate(tmp_path):
+    registry = AgentRegistry(tmp_path)
+    registry.register("a", "A", "a2a", ["research", "web", "search"],
+                      "https://a.example/card", endpoint="https://a.example")
+    for i in range(5):
+        registry.record("a", "research web search", True, quality=95, duration_seconds=20)
+    row = registry.rank("research web search")[0]
+    assert row["performance_score"] == 98
+    assert row["requested_task_fit"] == 100
+    assert row["tier"] == "MYTHIC"
