@@ -625,6 +625,41 @@ def register(ctx):
             "message": "Advisory ranking only. Unranked agents lack five observed completed tasks.",
         })
 
+    active_subagents = {}
+
+    def on_subagent_start(child_session_id=None, child_subagent_id=None,
+                          child_role=None, child_goal=None, **kwargs):
+        key = str(child_session_id or child_subagent_id or "").strip()
+        if not key:
+            return None
+        role = str(child_role or "unassigned").strip()[:60] or "unassigned"
+        active_subagents[key] = {
+            "role": role,
+            "task": str(child_goal or role)[:1000],
+        }
+        return None
+
+    def on_subagent_stop(child_session_id=None, child_role=None,
+                         child_summary=None, child_status="error",
+                         duration_ms=None, **kwargs):
+        if agent_registry is None:
+            return None
+        key = str(child_session_id or "").strip()
+        started = active_subagents.pop(key, {})
+        role = str(child_role or started.get("role") or "unassigned")[:60]
+        task = str(started.get("task") or child_summary or role)[:1000]
+        try:
+            agent_id = agent_registry.register_runtime(role)
+            duration = None
+            if isinstance(duration_ms, (int, float)) and not isinstance(duration_ms, bool):
+                duration = max(0.0, float(duration_ms) / 1000.0)
+            success = str(child_status or "").lower() == "completed"
+            agent_registry.record(agent_id, task, success, duration_seconds=duration)
+            _emit_agent_rank(agent_registry.rank(""))
+        except (TypeError, ValueError, RuntimeError) as exc:
+            logger.warning("Rariflat could not record subagent completion: %s", exc)
+        return None
+
     def route_skills(args, **kwargs):
         args = args if isinstance(args, dict) else {}
         task = str(args.get("task") or "").strip()
@@ -748,6 +783,8 @@ def register(ctx):
 
     ctx.register_hook("pre_tool_call", on_pre_tool)
     ctx.register_hook("post_tool_call", on_post_tool)
+    ctx.register_hook("subagent_start", on_subagent_start)
+    ctx.register_hook("subagent_stop", on_subagent_stop)
 
     def status_cmd(raw_args="", **kwargs):
         command = raw_args.strip().lower() if isinstance(raw_args, str) else ""
