@@ -689,7 +689,10 @@ def register(ctx):
 
     def on_subagent_start(child_session_id=None, child_subagent_id=None,
                           child_role=None, child_goal=None, **kwargs):
-        key = str(child_session_id or child_subagent_id or "").strip()
+        # Hermes guarantees child_subagent_id at start, but does not include it
+        # in subagent_stop. Correlate only on child_session_id, which both hooks
+        # expose when available; never guess across concurrent children.
+        key = str(child_session_id or "").strip()
         if not key:
             return None
         role = str(child_role or "unassigned").strip()[:60] or "unassigned"
@@ -702,12 +705,12 @@ def register(ctx):
             active_subagents.pop(next(iter(active_subagents)))
         return None
 
-    def on_subagent_stop(child_session_id=None, child_subagent_id=None,
-                         child_role=None, child_summary=None, child_status="error",
+    def on_subagent_stop(child_session_id=None, child_role=None,
+                         child_summary=None, child_status="error",
                          duration_ms=None, **kwargs):
         if agent_registry is None:
             return None
-        key = str(child_session_id or child_subagent_id or "").strip()
+        key = str(child_session_id or "").strip()
         started = active_subagents.pop(key, {})
         role = str(child_role or started.get("role") or "unassigned")[:60]
         task = str(started.get("task") or child_summary or role)[:1000]
