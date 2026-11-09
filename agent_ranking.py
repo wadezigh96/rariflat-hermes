@@ -239,7 +239,9 @@ class AgentRegistry:
     def summary(self, agent_id):
         with self._lock:
             self._refresh_profile()
-        agent = self.agents[agent_id]
+        agent = self.agents.get(str(agent_id or "").strip())
+        if agent is None:
+            raise ValueError("agent is not registered")
         events = agent.get("observations", [])
         n = len(events)
         success_rate = 100.0 * sum(bool(e.get("success")) for e in events) / n if n else 0.0
