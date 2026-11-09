@@ -637,6 +637,9 @@ def register(ctx):
             "role": role,
             "task": str(child_goal or role)[:1000],
         }
+        # Bound transient lifecycle state if a runtime fails to emit stop events.
+        while len(active_subagents) > 2000:
+            active_subagents.pop(next(iter(active_subagents)))
         return None
 
     def on_subagent_stop(child_session_id=None, child_role=None,
