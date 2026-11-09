@@ -12,7 +12,8 @@
 
 The local YAML file in this repository is only a draft. The required catalog PR must add one `plugin-catalog/rariflat.yaml` file to the official [`NousResearch/hermes-agent`](https://github.com/NousResearch/hermes-agent) repository. It must pin the exact public source commit and include accurate capabilities and disclosure. A PR to this Rariflat repository does not satisfy that catalog requirement.
 
-- [ ] Update the existing catalog PR #151221 in `NousResearch/hermes-agent` to the exact pushed SHA, matching compatibility/disclosure metadata, and a real Desktop screenshot. The current GitHub session cannot write to the PR's fork branch; reconnect with access to `wadezigh96/hermes-agent` to finish this step.
+- [x] Update the existing catalog PR #151221 in `NousResearch/hermes-agent` to the exact pushed SHA and matching compatibility/disclosure metadata ([fork commit `78c6101eab`](https://github.com/wadezigh96/hermes-agent/commit/78c6101eab)).
+- [ ] Add a genuine Hermes Desktop screenshot to PR #151221 after testing the live pane; contract tests are not a substitute for runtime evidence.
 - [ ] Post a working demo video on X, keep it under 90 seconds, show the plugin operating, and tag `@NousResearch`.
 - [ ] Submit both the official catalog PR link and the X demo link through the [hackathon entry form](https://form.typeform.com/to/FwJLvOln).
 - [ ] Submit by **5:00 PM Eastern Time on November 11, 2026**, per the [official announcement](https://x.com/NousResearch/status/2118094256438936062).

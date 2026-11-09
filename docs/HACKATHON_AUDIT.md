@@ -20,16 +20,9 @@ Pada commit persis `c5d6fba59c85eddfe75e2d890dfd0bc678060aa6`, Hermes Agent v0.2
 
 ## PR katalog resmi dan akses
 
-PR katalog resmi [NousResearch/hermes-agent#151221](https://github.com/NousResearch/hermes-agent/pull/151221) masih terbuka dari branch `feat/add-rariflat-plugin-catalog` di fork `wadezigh96/hermes-agent`. Entry yang dibaca di branch itu masih mem-pin `4627c41da2f8906c5927dabc19f93e3acb9e685c` dan mensyaratkan Hermes `>=0.21`; seharusnya diperbarui ke source tervalidasi di atas dan `>=0.22.6`. [2] [6]
+PR katalog resmi [NousResearch/hermes-agent#151221](https://github.com/NousResearch/hermes-agent/pull/151221) masih terbuka dari branch `feat/add-rariflat-plugin-catalog` di fork `wadezigh96/hermes-agent`. Entry tersebut sudah disinkronkan pada commit [`78c6101eab`](https://github.com/wadezigh96/hermes-agent/commit/78c6101eab) ke source tervalidasi dan minimum Hermes `>=0.22.6`. [2] [6]
 
-Saya mencoba memperbarui file katalog pada branch PR tersebut, tetapi GitHub menolak operasi tulis dengan **403 `Resource not accessible by integration`**. Tidak ada perubahan yang dilakukan pada fork atau PR. Akses GitHub yang tersedia untuk sesi ini tidak mencakup izin tulis ke `wadezigh96/hermes-agent`; untuk menyelesaikan langkah ini, aktifkan izin connector untuk repo itu atau lakukan commit berikut secara manual pada branch PR:
-
-```yaml
-sha: c5d6fba59c85eddfe75e2d890dfd0bc678060aa6
-requires_hermes: ">=0.22.6"
-```
-
-Setelah push ke branch PR, pantau validasi katalog dan tangani kebutuhan persetujuan maintainer; saya tidak mengubah permission atau mencoba jalur autentikasi lain.
+Pantau validasi katalog dan tangani kebutuhan persetujuan maintainer. Screenshot Desktop asli masih perlu ditambahkan ke PR setelah pengujian pada Hermes Desktop.
 
 ## Demo yang masih dibutuhkan
 
