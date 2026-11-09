@@ -32,8 +32,13 @@ else
   hermes plugins install "$REPO" --ref "$REF" --enable
 fi
 
-hermes plugins list
-hermes plugins doctor "$PLUGIN_DIR"
+ENABLED_PLUGINS="$(hermes plugins list --enabled --plain)"
+printf "%s\\n" "$ENABLED_PLUGINS"
+if ! grep -qi "rariflat" <<< "$ENABLED_PLUGINS"; then
+  echo "ERROR: Rariflat is not listed as enabled after installation."
+  exit 1
+fi
+hermes plugins doctor "$PLUGIN_DIR" --ci
 
 echo
 echo "== Starting the real Hermes agent demo =="
