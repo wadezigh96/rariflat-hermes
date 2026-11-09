@@ -1,3 +1,4 @@
+import json
 import pytest
 
 from agent_ranking import AgentRegistry, _tier
@@ -53,6 +54,7 @@ def test_rank_prioritizes_capability_fit_but_discloses_low_history(tmp_path):
     assert rows[0]["tier"] == "UNRANKED"
     assert rows[0]["evidence"] == "insufficient_observations"
     assert rows[0]["requested_task_fit"] == 100
+    assert rows[0]["ranking_score"] == 100
 
 
 def test_rejects_non_https_a2a_and_hermes_without_install_reference(tmp_path):
@@ -169,11 +171,60 @@ def test_hermes_install_ref_is_repo_slug_not_arbitrary_command(tmp_path):
     registry = AgentRegistry(tmp_path)
     with pytest.raises(ValueError):
         registry.register("agent-bad", "Bad", "hermes", ["research"],
-                          "untrusted source", install_ref="https://evil.example/install.sh")
+                          "https://github.com/acme/research-agent", install_ref="https://evil.example/install.sh")
     with pytest.raises(ValueError):
         registry.register("agent-cmd", "Bad", "hermes", ["research"],
-                          "untrusted source", install_ref="curl|sh")
+                          "https://github.com/acme/research-agent", install_ref="curl|sh")
     item = registry.register("agent-good", "Good", "hermes", ["research"],
                              "https://github.com/acme/research-agent",
                              install_ref="acme/research-agent")
     assert item["install_ref"] == "acme/research-agent"
+
+
+def test_registry_follows_profile_data_directory(tmp_path):
+    active = {"dir": tmp_path / "profile-a"}
+    registry = AgentRegistry(lambda: active["dir"])
+    registry.register("agent-a", "Profile A", "a2a", ["research"],
+                      "https://a.example/card", endpoint="https://a.example")
+    active["dir"] = tmp_path / "profile-b"
+    assert registry.rank() == []
+    registry.register("agent-b", "Profile B", "a2a", ["coding"],
+                      "https://b.example/card", endpoint="https://b.example")
+    assert [row["id"] for row in registry.rank()] == ["agent-b"]
+    assert (tmp_path / "profile-a" / "agents.json").exists()
+    assert (tmp_path / "profile-b" / "agents.json").exists()
+
+
+def test_rejects_hermes_source_with_query_or_mismatched_repository(tmp_path):
+    registry = AgentRegistry(tmp_path)
+    with pytest.raises(ValueError):
+        registry.register("agent-a", "Bad", "hermes", ["research"],
+                          "https://github.com/acme/repo?token=secret",
+                          install_ref="acme/repo")
+    with pytest.raises(ValueError):
+        registry.register("agent-b", "Bad", "hermes", ["research"],
+                          "https://github.com/other/repo",
+                          install_ref="acme/repo")
+
+
+def test_valid_json_with_invalid_registry_schema_fails_closed(tmp_path):
+    path = tmp_path / "agents.json"
+    path.write_text(json.dumps({"schema_version": 1, "agents": {
+        "agent-a": {"id": "agent-a", "name": "Broken", "kind": "a2a",
+                    "capabilities": ["research"], "source": "https://a.example/card",
+                    "status": "source_unverified_not_connected",
+                    "observations": [{"success": True}]}
+    }}), encoding="utf-8")
+    registry = AgentRegistry(tmp_path)
+    assert registry.rank() == []
+    with pytest.raises(RuntimeError):
+        registry.register("agent-b", "Researcher", "a2a", ["research"],
+                          "https://b.example/card", endpoint="https://b.example")
+    assert path.exists()
+
+
+
+def test_summary_unknown_agent_returns_validation_error(tmp_path):
+    registry = AgentRegistry(tmp_path)
+    with pytest.raises(ValueError, match="agent is not registered"):
+        registry.summary("missing-agent")

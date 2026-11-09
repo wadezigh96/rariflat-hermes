@@ -16,6 +16,7 @@ It is designed to make tool activity easier to understand, help operators compar
 | Reliability is difficult to compare from memory | Local success/use counts and failure streaks provide a lightweight evidence trail | Scores reflect only activity observed since Rariflat was installed and can be reset |
 | Repeated identical calls can waste time or tokens | Optional loop detection can block a configured repeated-call pattern | Disabled unless explicitly enabled and configured; tune thresholds for the workflow |
 | Repeated failures may cause an agent to retry without noticing a pattern | Optional failure-streak guard can block after a configured number of consecutive failures | Disabled by default; it is a simple guard, not a replacement for application-level retries, budgets, or human review |
+| An agent may repeat an identical call without making progress | Optional repeated-call detection tracks safe fingerprints within a configurable time window and can block a loop | Disabled by default; thresholds must be explicitly configured and tested |
 
 ## How ranking works
 
@@ -40,13 +41,13 @@ Each recommendation includes the measured factor values, use/repeat counts, and 
 
 ### 2. Install Rariflat
 
-Until the official catalog PR is accepted and published, install the reviewed source revision directly:
+The Rariflat catalog entry has been merged, but the upstream Hermes catalog currently pins an older revision that declares only three tools and two hooks. The current branch contains six tools and four hooks. Until a separate SHA-bump PR is reviewed and merged upstream, install this exact branch commit as a custom source:
 
 ```bash
-hermes plugins install wadezigh96/rariflat-hermes --ref e7a8d9bb3fc88eda28ebd5cd253a3a4a48d855cb --enable
+hermes plugins install wadezigh96/rariflat-hermes --ref 20b2076e319aff773826ae6bde49e7e06598f878
 ```
 
-The `--ref` value is the immutable 40-character SHA for the audited source commit. It passed the Hermes v0.23.0 plugin validator and Doctor. The command uses Hermes' documented Git installation flow; `--enable` skips the enable prompt. Review and accept any dependency-consent prompt shown by Hermes. For future source changes, update this pin and the catalog PR to the exact pushed and validated commit. After the catalog listing is accepted, users can install by catalog name with `hermes plugins install rariflat --enable`.
+The `--ref` value is the immutable 40-character SHA for the exact plugin source revision that passed the branch test suite and official Hermes validation. This is a custom Git install, not a catalog-provenance install; review the source and accept Hermes' normal install/enable prompts. The command uses Hermes' documented Git installation flow and does not request automatic enablement. Review and accept any dependency-consent prompt shown by Hermes. Enable the plugin separately only after reviewing its configuration and deciding to activate it. For future source changes, update this pin only after the exact commit has passed tests and Hermes validation. Users installing by catalog name will receive the upstream catalog's currently reviewed older pin until its separate SHA-bump PR is merged.
 
 ### 3. Validate the plugin
 

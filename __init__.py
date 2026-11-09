@@ -302,6 +302,12 @@ class Store:
         self._last_save = 0.0
         self._load()
 
+    def current_data_dir(self) -> Path:
+        """Return the current profile's plugin data directory."""
+        with self._lock:
+            self._refresh_profile()
+            return self.data_dir
+
     def _load(self) -> None:
         with self._lock:
             if not self.path.exists():
@@ -628,7 +634,8 @@ def register(ctx):
         if agent_spec and agent_spec.loader:
             agent_module = importlib.util.module_from_spec(agent_spec)
             agent_spec.loader.exec_module(agent_module)
-            agent_registry = agent_module.AgentRegistry(store.data_dir)
+            # Follow Hermes' active profile-scoped plugin data directory.
+            agent_registry = agent_module.AgentRegistry(store.current_data_dir)
     except Exception as exc:
         logger.warning("Rariflat agent ranking unavailable: %s", exc)
 
@@ -682,7 +689,10 @@ def register(ctx):
 
     def on_subagent_start(child_session_id=None, child_subagent_id=None,
                           child_role=None, child_goal=None, **kwargs):
-        key = str(child_session_id or child_subagent_id or "").strip()
+        # Hermes guarantees child_subagent_id at start, but does not include it
+        # in subagent_stop. Correlate only on child_session_id, which both hooks
+        # expose when available; never guess across concurrent children.
+        key = str(child_session_id or "").strip()
         if not key:
             return None
         role = str(child_role or "unassigned").strip()[:60] or "unassigned"
@@ -701,7 +711,12 @@ def register(ctx):
         if agent_registry is None:
             return None
         key = str(child_session_id or "").strip()
-        started = active_subagents.pop(key, {})
+        if not key:
+            return None
+        started = active_subagents.pop(key, None)
+        if started is None:
+            # Do not turn an uncorrelated stop event into fabricated evidence.
+            return None
         role = str(child_role or started.get("role") or "unassigned")[:60]
         task = str(started.get("task") or child_summary or role)[:1000]
         try:
