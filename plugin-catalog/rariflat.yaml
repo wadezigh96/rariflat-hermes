@@ -2,7 +2,7 @@ name: rariflat
 title: Rariflat
 description: "Live character reactions for Hermes tool calls; local reliability learning and explainable tool/skill recommendations weighted by task fit, reliability, measured usage-frequency rarity, and repeated-call restraint. The router recommends tools/skills only; it does not dispatch tasks to agents or invoke selected tools. An opt-in failure-streak and repeated-call guard is disabled by default. Tool arguments are inspected in memory for non-secret task tokens and repeat fingerprints; credential-like fields and recognized inline secrets are filtered before learning. No raw arguments or credentials are intentionally persisted. No network requests, telemetry, or subprocesses are initiated by the plugin."
 repo: https://github.com/wadezigh96/rariflat-hermes
-sha: 31c522ddccd32674a474bf8b73273b4605e14b2e
+sha: b4eb4b1989804b9e4823cef807ab76e43eb72c91
 version: "2.0.0"
 maintainer: wadezigh96
 tier: community
@@ -14,8 +14,13 @@ capabilities:
     - rariflat_route
     - rariflat_status
     - rariflat_guard
+    - rariflat_agent_register
+    - rariflat_agent_complete
+    - rariflat_agent_rank
   provides_hooks:
     - pre_tool_call
     - post_tool_call
+    - subagent_start
+    - subagent_stop
   provides_middleware: []
   requires_env: []
