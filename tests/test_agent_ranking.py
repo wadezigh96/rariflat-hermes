@@ -104,3 +104,17 @@ def test_runtime_role_is_distinguished_from_installable_plugin(tmp_path):
     assert item["status"] == "runtime_observed"
     assert item["source_verified"] is False
     assert item["install_ref"] == "runtime:subagent"
+
+
+def test_tier_order_is_mythic_then_legend_then_epic(tmp_path):
+    registry = AgentRegistry(tmp_path)
+    registry.register("mythic", "Mythic agent", "a2a", ["math"],
+                      "https://m.example/card", endpoint="https://m.example")
+    registry.register("legend", "Legend agent", "a2a", ["writing"],
+                      "https://l.example/card", endpoint="https://l.example")
+    for _ in range(5):
+        registry.record("mythic", "math", True, quality=100)
+        registry.record("legend", "writing", True, quality=0)
+    rows = registry.rank("writing")
+    assert rows[0]["tier"] == "MYTHIC"
+    assert rows[1]["tier"] == "LEGEND"
