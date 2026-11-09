@@ -272,7 +272,8 @@ function AgentRankingCard({ ranking }) {
               jsx('div', { className: 'h-full rounded bg-violet-400', style: { width: `${agent.score}%` } }) }),
             jsx('div', { className: 'mt-2 grid grid-cols-2 gap-1 text-[10px] opacity-80', children: [
               jsx('span', { children: `Success ${Math.round(agent.success_rate)}%` }),
-              jsx('span', { children: `Task fit ${Math.round(agent.average_task_fit)}%` }),
+              jsx('span', { children: `Task fit ${Math.round(agent.requested_task_fit)}%` }),
+              jsx('span', { children: `Historical score ${Math.round(agent.performance_score)}%` }),
               jsx('span', { children: agent.average_quality == null ? 'Quality: not supplied' : `Quality ${Math.round(agent.average_quality)}%` }),
               jsx('span', { children: agent.average_duration_seconds == null ? 'Time: n/a' : `Avg ${agent.average_duration_seconds}s` }),
             ] }),
