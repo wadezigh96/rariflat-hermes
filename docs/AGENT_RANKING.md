@@ -14,7 +14,7 @@ Tier is based on the agent's observed performance score and is withheld until at
 | DEVELOPING | Below 70 |
 | UNRANKED | Fewer than five observations |
 
-The displayed ranking score blends current task capability fit (60%) with historical performance (40%) once there are five observations. Before that threshold, ranking is provisional and uses capability fit only; tier remains UNRANKED.
+Ranking order is tier-first: MYTHIC, then LEGEND, then EPIC, then DEVELOPING, with UNRANKED last. Within a tier, the displayed ranking score breaks ties. That score blends current task capability fit (60%) with historical performance (40%) once there are five observations. Before that threshold, ranking is provisional and uses capability fit only; tier remains UNRANKED.
 
 Historical performance is calculated from locally recorded completed tasks:
 - success rate = successful completions / recorded completions;
