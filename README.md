@@ -16,6 +16,7 @@ It is designed to make tool activity easier to understand, help operators compar
 | Reliability is difficult to compare from memory | Local success/use counts and failure streaks provide a lightweight evidence trail | Scores reflect only activity observed since Rariflat was installed and can be reset |
 | Repeated identical calls can waste time or tokens | Optional loop detection can block a configured repeated-call pattern | Disabled unless explicitly enabled and configured; tune thresholds for the workflow |
 | Repeated failures may cause an agent to retry without noticing a pattern | Optional failure-streak guard can block after a configured number of consecutive failures | Disabled by default; it is a simple guard, not a replacement for application-level retries, budgets, or human review |
+| An agent may repeat an identical call without making progress | Optional repeated-call detection tracks safe fingerprints within a configurable time window and can block a loop | Disabled by default; thresholds must be explicitly configured and tested |
 
 ## How ranking works
 
