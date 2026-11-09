@@ -1,6 +1,6 @@
 # Audit kesiapan Hermes Plugin Hackathon — Rariflat
 
-**Status per 9 November 2026.** Source yang diaudit dipublikasikan pada branch `main` sebagai commit [`c5d6fba59c85eddfe75e2d890dfd0bc678060aa6`](https://github.com/wadezigh96/rariflat-hermes/commit/c5d6fba59c85eddfe75e2d890dfd0bc678060aa6). README, quickstart, dan draft katalog lokal dipin ke SHA yang sama. Demo Desktop/X belum direkam.
+**Status per 9 November 2026.** Source yang diaudit dipublikasikan pada branch `main` sebagai commit [`770841abcf47ce831ef3d3035926862161034720`](https://github.com/wadezigh96/rariflat-hermes/commit/770841abcf47ce831ef3d3035926862161034720). README, quickstart, dan draft katalog lokal dipin ke SHA yang sama. Demo Desktop/X belum direkam.
 
 Rariflat memasang tools dan hooks, belajar dari hasil panggilan lokal, menyediakan guard opt-in, serta pane Hermes Desktop. Ini lebih dari plugin prompt/skill dan sesuai arah kontes yang mencari plugin berfungsi nyata. Juri menilai usefulness, reliability, polish, dan creativity. [1]
 
@@ -14,7 +14,7 @@ Rariflat memasang tools dan hooks, belajar dari hasil panggilan lokal, menyediak
 
 ## Validasi source
 
-Pada commit persis `c5d6fba59c85eddfe75e2d890dfd0bc678060aa6`, Hermes Agent v0.23.0 melaporkan `Validation passed` untuk `hermes plugins validate . --install-deps`; `hermes plugins doctor .` juga lulus dan menemukan 3 tools serta 2 hooks.
+Pada commit persis `770841abcf47ce831ef3d3035926862161034720`, Hermes Agent v0.23.0 melaporkan `Validation passed` untuk `hermes plugins validate . --install-deps`; `hermes plugins doctor .` juga lulus dan menemukan 6 tools serta 4 hooks.
 
 **43 tes Python** dan **7 tes Node** lulus; smoke test installer, kompilasi Python, parse YAML, pengecekan metadata dan pin, serta `git diff --check` juga lulus. Source dipush fast-forward ke `main`, tanpa force push. Workflow GitHub untuk commit itu terlihat berjalan saat diperiksa; periksa tautan Actions di repo untuk hasil akhir.
 
