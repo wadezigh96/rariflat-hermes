@@ -9,7 +9,7 @@ It is designed to make tool activity easier to understand, help operators compar
 | Operational problem | How Rariflat helps | Important limitation |
 |---|---|---|
 | Tool calls are hard to follow in a busy agent session | Character reactions and an optional Desktop pane show tool activity and outcomes | The pane depends on Hermes Desktop and the supported plugin event bridge |
-| Operators do not know which previously used tool may fit a task | `rariflat_route` ranks observed tools using task fit, reliability, rarity, and restraint, with measured values and an explanation | It recommends only; it does not dispatch work to agents, call the recommended tool, or guarantee the best result |
+| Operators do not know which previously used tool may fit a task | `rariflat_route` ranks observed tool names using task fit, reliability, rarity, and restraint, with measured values and an explanation | It recommends only; it does not dispatch work to agents, call the recommended tool, or guarantee the best result |
 | Recommendation scores can be mistaken for certainty | The Desktop decision card shows the top choice, factor scores, and observed call counts; fewer than five calls are labeled as limited history | The threshold is an evidence cue, not a calibrated confidence estimate; new installations have little or no history |
 | Reliability is difficult to compare from memory | Local success/use counts and failure streaks provide a lightweight evidence trail | Scores reflect only activity observed since Rariflat was installed and can be reset |
 | Repeated identical calls can waste time or tokens | Optional loop detection can block a configured repeated-call pattern | Disabled unless explicitly enabled and configured; tune thresholds for the workflow |
@@ -26,7 +26,7 @@ The advisory router uses a weighted score:
 
 Each recommendation includes the measured factor values, use/repeat counts, and a human-readable reason. The optional Desktop decision card shows the top recommendation and alternatives using aggregate fields only; its route event omits raw task text, tool arguments, and the reason string. It labels tools with fewer than five observed calls as limited history; this is not a statistical confidence claim. New installations have little or no history, so recommendations become more informative as the user works.
 
-**Router boundary:** `rariflat_route` returns ranked tool/skill names and `dispatches_to_agent: false`. It does not route a task to another agent, invoke tools, or execute a plan.
+**Router boundary:** `rariflat_route` returns ranked names of tools observed by its hooks and `dispatches_to_agent: false`. It does not index installed skills, route a task to another agent, invoke tools, or execute a plan.
 
 ## Quick start
 
@@ -41,10 +41,10 @@ Each recommendation includes the measured factor values, use/repeat counts, and 
 Until the official catalog PR is accepted and published, install the reviewed source revision directly:
 
 ```bash
-hermes plugins install wadezigh96/rariflat-hermes --ref 31c522ddccd32674a474bf8b73273b4605e14b2e --enable
+hermes plugins install wadezigh96/rariflat-hermes --ref 911a10bac40ff536115f7485d4bba42186f36e83 --enable
 ```
 
-The `--ref` value is a full immutable 40-character commit SHA. The command uses Hermes' documented Git installation flow; `--enable` skips the enable prompt. Review and accept any dependency-consent prompt shown by Hermes. After the catalog listing is accepted, users can install by catalog name with `hermes plugins install rariflat --enable`.
+The `--ref` value is a full immutable 40-character commit SHA for the latest public source revision checked during this audit. The command uses Hermes' documented Git installation flow; `--enable` skips the enable prompt. Review and accept any dependency-consent prompt shown by Hermes. Before publishing later source changes, update this pin and the catalog PR to the exact pushed commit. After the catalog listing is accepted, users can install by catalog name with `hermes plugins install rariflat --enable`.
 
 ### 3. Validate the plugin
 
@@ -76,6 +76,8 @@ Example task for the recommendation tool:
 ```
 
 Example response fields include:
+
+For backward compatibility, `router_type` and the result key `skill` retain their historical names; values in `skill` are names of observed tools, not installed skill-catalog entries.
 
 ```json
 {
@@ -133,7 +135,7 @@ The Desktop UI is provided in `desktop/plugin.js` and listens for the plugin eve
 
 ## Data handling and reset
 
-- Scores are stored locally at `~/.hermes/plugin-data/rariflat/scores.json`, unless `RARIFLAT_DATA_DIR` is set.
+- Scores are stored locally at `<active HERMES_HOME>/plugin-data/rariflat/scores.json` through Hermes' profile-aware `plugin_data_dir()` API, unless `RARIFLAT_DATA_DIR` is set.
 - Tool arguments are inspected in memory to learn non-secret task tokens and build repeated-call fingerprints.
 - Credential-like fields and recognized inline secret patterns are filtered before token learning and fingerprinting. No raw arguments or credentials are intentionally persisted.
 - Set `RARIFLAT_LEARN_ARGS=0` to disable argument-token learning; repeated-call fingerprints remain local and continue to exclude recognized credential fields.

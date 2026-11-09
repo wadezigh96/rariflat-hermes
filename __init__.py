@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import atexit
+import copy
 import hashlib
 import json
 import logging
@@ -12,7 +13,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 logger = logging.getLogger("rariflat")
 _VERBOSE = os.getenv("RARIFLAT_VERBOSE", "").strip().lower() in {"1", "true", "yes", "on"}
@@ -262,9 +263,13 @@ def _rank_tools(task: str, tools: dict[str, dict]) -> list[dict]:
 
 class Store:
     """Thread-safe local score store with atomic writes and corruption quarantine."""
-    def __init__(self, data_dir: Path | str | None = None):
-        configured = data_dir or os.getenv("RARIFLAT_DATA_DIR")
-        self.data_dir = Path(configured).expanduser() if configured else Path.home() / ".hermes" / "plugin-data" / "rariflat"
+    def __init__(self, data_dir: Path | str | Callable[[], Path] | None = None):
+        self._data_dir_provider = data_dir if callable(data_dir) else None
+        configured = None if self._data_dir_provider else (data_dir or os.getenv("RARIFLAT_DATA_DIR"))
+        if self._data_dir_provider:
+            self.data_dir = Path(self._data_dir_provider()).expanduser()
+        else:
+            self.data_dir = Path(configured).expanduser() if configured else Path.home() / ".hermes" / "plugin-data" / "rariflat"
         self.path = self.data_dir / "scores.json"
         self.tools: dict[str, dict] = {}
         self.guard_enabled = os.getenv("RARIFLAT_GUARD", "").strip().lower() in {"1", "true", "yes", "on"}
@@ -274,6 +279,26 @@ class Store:
         self.sessions_started = 0
         self.first_session_at: float | None = None
         self.last_session_at: float | None = None
+        self._load()
+
+    def _refresh_profile(self) -> None:
+        """Switch persisted state when Hermes changes the active profile home."""
+        if self._data_dir_provider is None:
+            return
+        next_dir = Path(self._data_dir_provider()).expanduser()
+        if next_dir == self.data_dir:
+            return
+        # Flush the departing profile before following Hermes to the next one.
+        self.save(force=True, _refresh=False)
+        self.data_dir = next_dir
+        self.path = next_dir / "scores.json"
+        self.tools = {}
+        self._recent_calls.clear()
+        self.guard_enabled = os.getenv("RARIFLAT_GUARD", "").strip().lower() in {"1", "true", "yes", "on"}
+        self.sessions_started = 0
+        self.first_session_at = None
+        self.last_session_at = None
+        self._last_save = 0.0
         self._load()
 
     def _load(self) -> None:
@@ -310,6 +335,7 @@ class Store:
         """Record a plugin runtime start; this is not an account-login signal."""
         now = float(timestamp if timestamp is not None else time.time())
         with self._lock:
+            self._refresh_profile()
             self.sessions_started += 1
             if self.first_session_at is None:
                 self.first_session_at = now
@@ -318,6 +344,7 @@ class Store:
 
     def set_guard(self, enabled: bool) -> None:
         with self._lock:
+            self._refresh_profile()
             self.guard_enabled = bool(enabled)
         self.save(force=True)
 
@@ -331,11 +358,13 @@ class Store:
             return False
         stamp = float(now if now is not None else time.time())
         try:
-            signature = json.dumps(args if isinstance(args, (dict, list, str, int, float, bool)) else str(args), sort_keys=True, default=str)
+            safe_args = _safe_fingerprint_value(args)
+            signature = json.dumps(safe_args, sort_keys=True, default=str)
         except (TypeError, ValueError):
             signature = repr(args)
         key = tool + ":" + hashlib.sha256(signature.encode("utf-8")).hexdigest()
         with self._lock:
+            self._refresh_profile()
             # Prune expired signatures globally and bound high-cardinality inputs.
             for old_key, timestamps in list(self._recent_calls.items()):
                 fresh = [t for t in timestamps if 0 <= stamp - t <= window]
@@ -356,6 +385,7 @@ class Store:
             return
         now = float(timestamp if timestamp is not None else time.time())
         with self._lock:
+            self._refresh_profile()
             item = self.tools.setdefault(tool_name, {"uses": 0, "successes": 0, "repeated_calls": 0, "fail_streak": 0, "tokens": [], "last_used": 0, "last_failure": 0})
             fingerprint_source = json.dumps(
                 _safe_fingerprint_value(args),
@@ -363,9 +393,14 @@ class Store:
             )
             fingerprint = hashlib.sha256(fingerprint_source.encode("utf-8")).hexdigest()
             previous_used = float(item.get("last_used", 0))
-            if item.get("last_args_fingerprint") == fingerprint and 0 <= now - previous_used <= 30:
+            repeated = item.get("last_args_fingerprint") == fingerprint and 0 <= now - previous_used <= 30
+            if repeated:
                 item["repeated_calls"] = int(item.get("repeated_calls", 0)) + 1
-            item["repeated_calls_total"] = int(item.get("repeated_calls_total", item.get("repeated_calls", 0)))
+                item["repeated_calls_total"] = int(
+                    item.get("repeated_calls_total", item.get("repeated_calls", 0) - 1)
+                ) + 1
+            else:
+                item.setdefault("repeated_calls_total", int(item.get("repeated_calls", 0)))
             item["last_args_fingerprint"] = fingerprint
             item["uses"] = int(item.get("uses", 0)) + 1
             item["first_used"] = item.get("first_used") or now
@@ -393,8 +428,22 @@ class Store:
                 item["tokens"] = sorted(set(item.get("tokens", [])) | _tokens(args))[:160]
         self.save()
 
-    def save(self, force: bool = False) -> None:
+    def snapshot(self) -> dict:
+        """Return a consistent, detached view for read-only tool handlers."""
         with self._lock:
+            self._refresh_profile()
+            return {
+                "tools": copy.deepcopy(self.tools),
+                "guard_enabled": self.guard_enabled,
+                "sessions_started": self.sessions_started,
+                "first_session_at": self.first_session_at,
+                "last_session_at": self.last_session_at,
+            }
+
+    def save(self, force: bool = False, _refresh: bool = True) -> None:
+        with self._lock:
+            if _refresh:
+                self._refresh_profile()
             now = time.monotonic()
             if not force and now - self._last_save < 0.5:
                 return
@@ -429,11 +478,11 @@ _store_lock = threading.RLock()
 _store: Store | None = None
 
 
-def _get_store() -> Store:
+def _get_store(data_dir: Path | str | Callable[[], Path] | None = None) -> Store:
     global _store
     with _store_lock:
         if _store is None:
-            _store = Store()
+            _store = Store(data_dir)
         return _store
 
 
@@ -527,13 +576,17 @@ def _is_own_tool(tool_name: str) -> bool:
 
 
 def register(ctx):
-    store = _get_store()
+    if not os.getenv("RARIFLAT_DATA_DIR"):
+        from plugins.plugin_storage import plugin_data_dir
+        store = _get_store(lambda: plugin_data_dir("rariflat"))
+    else:
+        store = _get_store()
     store.record_session_start()
 
     def route_skills(args, **kwargs):
         args = args if isinstance(args, dict) else {}
         task = str(args.get("task") or "").strip()
-        ranked = _rank_tools(task, store.tools)
+        ranked = _rank_tools(task, store.snapshot()["tools"])
         recommended = ranked[:5]
         _emit_route(recommended)
         best = recommended[0]["skill"] if recommended else None
@@ -544,44 +597,47 @@ def register(ctx):
             "recommended": recommended,
             "best": best,
             "message": (
-                f"Rariflat recommends tool/skill {best}; it does not dispatch tasks to agents."
+                f"Rariflat recommends observed tool {best}; it does not dispatch tasks to agents."
                 if best else "No tool history yet."
             ),
         })
     def get_status(args=None, **kwargs):
-        top = _rank_tools("", store.tools)[:5]
-        return json.dumps({"characters_active": True, "tracked_tools": len(store.tools), "guard_enabled": store.guard_enabled,
-                           "sessions_started": store.sessions_started,
-                           "first_session_at": store.first_session_at,
-                           "last_session_at": store.last_session_at,
+        snapshot = store.snapshot()
+        tools = snapshot["tools"]
+        top = _rank_tools("", tools)[:5]
+        return json.dumps({"characters_active": True, "tracked_tools": len(tools), "guard_enabled": snapshot["guard_enabled"],
+                           "sessions_started": snapshot["sessions_started"],
+                           "first_session_at": snapshot["first_session_at"],
+                           "last_session_at": snapshot["last_session_at"],
                            "top_skills": [{"name": d["skill"], "rarity": d["rarity"], "restraint": d["restraint"],
                                            "reliability": d["reliability"], "uses": d["uses"],
-                                           "successes": store.tools.get(d["skill"], {}).get("successes", 0),
-                                           "failures": store.tools.get(d["skill"], {}).get("failures", 0),
+                                           "successes": tools.get(d["skill"], {}).get("successes", 0),
+                                           "failures": tools.get(d["skill"], {}).get("failures", 0),
                                            "first_used": d.get("first_used"), "last_used": d.get("last_used"),
                                            "recent_uses": d["recent_uses"],
                                            "repeated_calls_30s": d["repeated_calls_30s"],
-                                           "repeated_calls_total": store.tools.get(d["skill"], {}).get("repeated_calls_total", store.tools.get(d["skill"], {}).get("repeated_calls", 0))}
+                                           "repeated_calls_total": tools.get(d["skill"], {}).get("repeated_calls_total", tools.get(d["skill"], {}).get("repeated_calls", 0))}
                                           for d in top],
                            "tools_activity": [
                                {"name": name, "uses": data.get("uses", 0),
                                 "successes": data.get("successes", 0), "failures": data.get("failures", 0),
                                 "first_used": data.get("first_used"), "last_used": data.get("last_used"),
                                 **_recent_usage_metrics(data)}
-                               for name, data in sorted(store.tools.items(), key=lambda pair: pair[1].get("uses", 0), reverse=True)
+                               for name, data in sorted(tools.items(), key=lambda pair: pair[1].get("uses", 0), reverse=True)
                            ]})
 
     def guard_check(args, **kwargs):
         args = args if isinstance(args, dict) else {}
         tool = str(args.get("tool") or "")
-        data = store.tools.get(tool, {})
+        snapshot = store.snapshot()
+        data = snapshot["tools"].get(tool, {})
         streak = int(data.get("fail_streak", 0))
-        blocked = store.guard_enabled and not _is_own_tool(tool) and streak >= _guard_threshold()
-        return json.dumps({"tool": tool, "guard_enabled": store.guard_enabled, "fail_streak": streak, "blocked": blocked,
+        blocked = snapshot["guard_enabled"] and not _is_own_tool(tool) and streak >= _guard_threshold()
+        return json.dumps({"tool": tool, "guard_enabled": snapshot["guard_enabled"], "fail_streak": streak, "blocked": blocked,
                            "message": f"{tool} would be blocked." if blocked else f"{tool} is allowed."})
 
     ctx.register_tool(name="rariflat_route", toolset="rariflat",
-        schema={"name": "rariflat_route", "description": "Rank and recommend a Hermes tool/skill using task fit, reliability, rarity, and restraint. Advisory only; does not dispatch tasks to agents.", "parameters": {"type": "object", "properties": {"task": {"type": "string"}}, "required": ["task"]}},
+        schema={"name": "rariflat_route", "description": "Rank previously observed Hermes tools using task fit, reliability, rarity, and restraint. Advisory only; does not dispatch tasks to agents or index installed skills.", "parameters": {"type": "object", "properties": {"task": {"type": "string"}}, "required": ["task"]}},
         handler=route_skills)
     ctx.register_tool(name="rariflat_status", toolset="rariflat",
         schema={"name": "rariflat_status", "description": "Show Rariflat tool reliability and guard status.", "parameters": {"type": "object", "properties": {}}},
@@ -594,15 +650,17 @@ def register(ctx):
         tool = str(tool_name or "")
         if _is_own_tool(tool):
             return None
-        data = store.tools.get(tool, {})
-        streak = int(data.get("fail_streak", 0))
-        cooldown = _cooldown()
-        if streak >= _guard_threshold() and (
-            cooldown == 0 or time.time() - float(data.get("last_failure", 0)) >= cooldown
-        ):
-            data["fail_streak"] = 0
-            store.save()
-            streak = 0
+        with store._lock:
+            store._refresh_profile()
+            data = store.tools.get(tool, {})
+            streak = int(data.get("fail_streak", 0))
+            cooldown = _cooldown()
+            if streak >= _guard_threshold() and (
+                cooldown == 0 or time.time() - float(data.get("last_failure", 0)) >= cooldown
+            ):
+                data["fail_streak"] = 0
+                store.save()
+                streak = 0
         looped = store.loop_detected(tool, args) if store.guard_enabled else False
         if store.guard_enabled and (streak >= _guard_threshold() or looped):
             reason = "repeated identical calls" if looped else f"{streak} consecutive failures"
@@ -642,15 +700,18 @@ def register(ctx):
             return "Rariflat guard ON." if enabled else "Rariflat guard OFF."
         if command == "reset":
             with store._lock:
+                store._refresh_profile()
                 store.tools.clear()
                 store._recent_calls.clear()
             store.save(force=True)
             return "Rariflat scores cleared."
-        lines = ["Rariflat — Tool Reliability", f"Guard: {'ON' if store.guard_enabled else 'OFF'}"]
-        if not store.tools:
+        snapshot = store.snapshot()
+        tools = snapshot["tools"]
+        lines = ["Rariflat — Tool Reliability", f"Guard: {'ON' if snapshot['guard_enabled'] else 'OFF'}"]
+        if not tools:
             lines.append("No tools tracked yet. Make some calls!")
         else:
-            for i, (name, data) in enumerate(sorted(store.tools.items(), key=lambda x: x[1].get("uses", 0), reverse=True), 1):
+            for i, (name, data) in enumerate(sorted(tools.items(), key=lambda x: x[1].get("uses", 0), reverse=True), 1):
                 lines.append(f"{i}. {name} · success {data.get('successes', 0)}/{data.get('uses', 0)} · fail streak {data.get('fail_streak', 0)}")
         return "\n".join(lines)
 

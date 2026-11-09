@@ -1,8 +1,8 @@
 # Rariflat Quickstart and Practical Use Cases
 
-Rariflat is a Hermes Agent plugin that makes tool activity visible, learns from observed tool outcomes, and recommends tools or skills for a task. This guide covers installation, first run, everyday workflows, and the problems it is designed to help with.
+Rariflat is a Hermes Agent plugin that makes tool activity visible, learns from observed tool outcomes, and recommends previously observed tools for a task. It does not index installed skills. This guide covers installation, first run, everyday workflows, and the problems it is designed to help with.
 
-> **Important scope:** Rariflat is an advisory tool/skill recommender. It ranks previously observed Hermes tools/skills; it does not assign work to agents, dispatch tasks, or execute the recommended tool on your behalf.
+> **Important scope:** Rariflat is an advisory tool recommender. It ranks tool names observed by its hooks; it does not assign work to agents, dispatch tasks, or execute the recommended tool on your behalf.
 
 ## 1. Requirements
 
@@ -16,10 +16,10 @@ Rariflat is a Hermes Agent plugin that makes tool activity visible, learns from 
 Until the Rariflat entry is accepted into the official Hermes plugin catalog, install the public repository at the validated immutable source commit:
 
 ```bash
-hermes plugins install wadezigh96/rariflat-hermes --ref 31c522ddccd32674a474bf8b73273b4605e14b2e --enable
+hermes plugins install wadezigh96/rariflat-hermes --ref 911a10bac40ff536115f7485d4bba42186f36e83 --enable
 ```
 
-The full 40-character SHA pins the install to a specific source revision. Do not replace it with `main`, a branch name, or a shortened SHA when you need a reproducible install.
+The full 40-character SHA pins the install to the latest public source revision checked during this audit. Do not replace it with `main`, a branch name, or a shortened SHA when you need a reproducible install. After publishing the local audit fixes, update this command and the official catalog PR to the exact pushed commit.
 
 If the catalog listing is approved and published later, the shorter catalog-based flow will be:
 
@@ -51,12 +51,12 @@ Start a new Hermes session after installation or enabling. Make a few ordinary t
 Ask Hermes to inspect the available Rariflat recommendations for a concrete task. For example:
 
 ```text
-Use rariflat_route to recommend the best previously observed tool or skill for:
+Use rariflat_route to recommend the best previously observed tool for:
 "Find the official documentation for Python asyncio and summarize the key usage patterns."
 Explain task fit, reliability, rarity, and restraint. Do not execute the recommendation yet.
 ```
 
-Rariflat returns up to five ranked candidates, including:
+Rariflat returns up to five ranked candidates from tool names observed by its hooks, including:
 - **Task fit** — overlap between task terms and the candidate's learned tokens.
 - **Reliability** — observed successful calls divided by observed calls, with a neutral starting value before history exists.
 - **Rarity** — a usage-frequency score; less frequently used tools receive a higher rarity score.
@@ -96,7 +96,7 @@ The guard can block a tool call after the configured consecutive-failure thresho
 ## 6. Problems Rariflat can help solve efficiently
 
 ### A. Choosing among tools that can perform similar tasks
-**Problem:** A task could be handled by a browser, search tool, terminal command, or an existing skill. Choosing manually every time adds friction.
+**Problem:** A task could be handled by a browser, search tool, or terminal tool. Choosing manually every time adds friction.
 
 **How Rariflat helps:** It compares task-token fit with observed reliability, usage rarity, and repeated-call restraint, then explains its ranking. This is most useful after the relevant tools have accumulated representative history.
 
@@ -131,12 +131,12 @@ Set environment variables before starting Hermes when you need custom behavior:
 | `RARIFLAT_COOLDOWN` | `30` | Seconds before a failure-streak lockout can recover automatically. |
 | `RARIFLAT_LOOP_REPEAT` | `0` | Repeated identical calls needed to trigger loop protection; `0` disables this detector. |
 | `RARIFLAT_LOOP_WINDOW` | `30` | Repeated-call detection window in seconds. |
-| `RARIFLAT_DATA_DIR` | `~/.hermes/plugin-data/rariflat` | Override the local score directory. |
+| `RARIFLAT_DATA_DIR` | Active Hermes home via `plugin_data_dir()` | Override the local score directory. |
 | `RARIFLAT_VERBOSE` | `0` | Set to `1` for additional character logs. |
 
 ## 8. Data handling and limitations
 
-- Rariflat stores its learned score data locally in `~/.hermes/plugin-data/rariflat/scores.json`, unless `RARIFLAT_DATA_DIR` is set.
+- Rariflat stores its learned score data locally under the active Hermes home at `plugin-data/rariflat/scores.json`, using Hermes' profile-aware `plugin_data_dir()` API, unless `RARIFLAT_DATA_DIR` is set.
 - Tool arguments are inspected in memory to extract task tokens and calculate repeat fingerprints. Credential-like fields and recognized inline secrets are filtered before learning and fingerprinting. Raw arguments and credential values are not intentionally persisted.
 - The plugin itself does not initiate network requests, telemetry, or subprocess execution.
 - Rarity and restraint are relative to the observed local history. A new installation has limited evidence; rankings should not be treated as objective quality scores.

@@ -3,7 +3,7 @@
 ## Verify the plugin before publishing
 
 - [ ] Run `python -m pytest -q tests`, `node --test tests/desktop_event_contract.test.mjs`, `bash tests/test_install.sh`, and `git diff --check`.
-- [ ] Run `hermes plugins validate . --install-deps` and `hermes plugins doctor .` using the current Hermes CLI.
+- [ ] Run `hermes plugins validate . --install-deps` and `hermes plugins doctor .` using Hermes `>=0.22.6`, against the exact source SHA that will be pinned in the catalog PR.
 - [ ] Confirm `plugin.yaml` capabilities match the registered tools and hooks.
 - [ ] Test the optional Desktop pane in Hermes Desktop and capture a genuine screenshot for the catalog PR; unit tests alone do not prove live Desktop integration.
 - [ ] Push the finished source changes. Then use the pushed 40-character commit SHA in the draft entry at `plugin-catalog/rariflat.yaml` and in the immutable install instructions. Never pin an unpushed or older tree.

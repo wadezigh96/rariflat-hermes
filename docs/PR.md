@@ -3,14 +3,14 @@ The catalog YAML in this repository is a draft entry only. Hackathon admission r
 
 ### What it does
 - `pre_tool_call` / `post_tool_call` hooks show a character reaction per tool call and learn local observed success rates.
-- `rariflat_route(task)` ranks previously-used tools by keyword match × reliability and explains why.
+- `rariflat_route(task)` ranks previously observed tool names using task fit, reliability, measured rarity, and recent-call restraint, then explains each factor.
 - Opt-in guard (`/rariflat guard on` or `RARIFLAT_GUARD=1`): blocks identical-call loops and repeated-failure tools for a cooldown only; never blocks its own tools. Returns the upstream shape `{"action": "block", "message": "..."}`.
 - Optional Desktop activity pane (events via `broadcast_plugin_event`).
 
 Rariflat recommends tools but does not dispatch tasks to agents. Recommendations are advisory and reflect only locally observed history.
 
 ### Disclosure
-- Local persistence only: `~/.hermes/plugin-data/rariflat/scores.json` (atomic writes, corrupt files renamed).
+- Local persistence only: `<active HERMES_HOME>/plugin-data/rariflat/scores.json` via Hermes' profile-aware `plugin_data_dir()` API (atomic writes, corrupt files quarantined).
 - The plugin makes no network requests, reads no external credential stores, and starts no shell commands or background services.
 - Tool arguments are processed in memory. Recognized credential-like fields and inline secret patterns are filtered before token learning and fingerprinting; `RARIFLAT_LEARN_ARGS=0` disables argument-token learning.
 - Failure output details are withheld from Desktop events to avoid exposing sensitive tool results.

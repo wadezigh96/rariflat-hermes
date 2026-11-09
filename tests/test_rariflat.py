@@ -1,5 +1,6 @@
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 
 def call(ctx, tool, args=None, result="ok"):
@@ -86,6 +87,30 @@ def test_atomic_write_and_corrupt_recovery(rf, tmp_path):
     assert any(p.name.startswith("scores.json.corrupt-") for p in tmp_path.iterdir())
 
 
+def test_snapshot_is_detached_and_safe_during_concurrent_records(rf, tmp_path):
+    store = rf.Store(tmp_path)
+
+    def write(index):
+        store.record_result(f"tool_{index % 8}", {"query": f"item {index}"}, True, timestamp=100 + index)
+
+    def read():
+        for _ in range(200):
+            snapshot = store.snapshot()
+            rf._rank_tools("query item", snapshot["tools"])
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        writes = [pool.submit(write, index) for index in range(400)]
+        reader = pool.submit(read)
+        for future in writes:
+            future.result()
+        reader.result()
+
+    snapshot = store.snapshot()
+    assert sum(item["uses"] for item in snapshot["tools"].values()) == 400
+    snapshot["tools"]["tool_0"]["uses"] = -1
+    assert store.snapshot()["tools"]["tool_0"]["uses"] > 0
+
+
 def test_own_tools_never_scored(rf, ctx):
     call(ctx, "rariflat_route", {"task": "x"}, result="ok")
     assert "rariflat_route" not in rf._get_store().tools
@@ -132,6 +157,48 @@ def test_guard_preference_survives_store_reload(rf, tmp_path):
     assert rf.Store(tmp_path).guard_enabled is True
     store.set_guard(False)
     assert rf.Store(tmp_path).guard_enabled is False
+
+
+def test_register_uses_profile_scoped_hermes_data_dir(rf, monkeypatch, tmp_path):
+    import sys
+    from types import ModuleType
+
+    monkeypatch.delenv("RARIFLAT_DATA_DIR", raising=False)
+    package = ModuleType("plugins")
+    package.__path__ = []
+    storage = ModuleType("plugins.plugin_storage")
+    expected = tmp_path / "profiles" / "work" / "plugin-data" / "rariflat"
+    active_dir = [expected]
+    storage.plugin_data_dir = lambda name: active_dir[0] if name == "rariflat" else tmp_path / name
+    monkeypatch.setitem(sys.modules, "plugins", package)
+    monkeypatch.setitem(sys.modules, "plugins.plugin_storage", storage)
+
+    with rf._store_lock:
+        rf._store = None
+
+    class Context:
+        def register_tool(self, **kwargs):
+            pass
+
+        def register_hook(self, *args, **kwargs):
+            pass
+
+        def register_command(self, *args, **kwargs):
+            pass
+
+    rf.register(Context())
+    store = rf._get_store()
+    assert store.data_dir == expected
+    assert (expected / "scores.json").exists()
+    store.record_result("browser", {"query": "first profile"}, True)
+
+    second = tmp_path / "profiles" / "personal" / "plugin-data" / "rariflat"
+    active_dir[0] = second
+    assert store.snapshot()["tools"] == {}
+    assert store.data_dir == second
+    store.record_result("terminal", {"command": "second profile"}, True)
+    assert "browser" in json.loads((expected / "scores.json").read_text())["tools"]
+    assert "terminal" in json.loads((second / "scores.json").read_text())["tools"]
 
 
 def test_guard_environment_setting_overrides_persisted_preference(rf, tmp_path, monkeypatch):
@@ -290,6 +357,21 @@ def test_repeated_call_metric_is_learned(rf, tmp_path):
     assert store.tools["browser"]["repeated_calls"] == 1
 
 
+def test_repeated_call_total_increments_and_survives_reload(rf, tmp_path):
+    store = rf.Store(tmp_path)
+    args = {"url": "https://example.com"}
+    store.record_result("browser", args, True, timestamp=100)
+    store.record_result("browser", args, True, timestamp=105)
+    store.record_result("browser", args, True, timestamp=110)
+    assert store.tools["browser"]["repeated_calls"] == 2
+    assert store.tools["browser"]["repeated_calls_total"] == 2
+
+    store.save(force=True)
+    reloaded = rf.Store(tmp_path)
+    reloaded.record_result("browser", args, True, timestamp=115)
+    assert reloaded.tools["browser"]["repeated_calls_total"] == 3
+
+
 def test_route_explains_all_ranking_factors_and_router_scope(rf, ctx):
     call(ctx, "web_search", {"query": "python asyncio tutorial"})
     out = json.loads(ctx.tools["rariflat_route"]({"task": "python asyncio tutorial"}))
@@ -364,6 +446,17 @@ def test_repeated_call_fingerprint_excludes_credentials(rf, tmp_path):
     store.record_result("api_call", {"query": "weather", "api_key": "second-secret"}, True, timestamp=110)
     assert store.tools["api_call"]["last_args_fingerprint"] == first
     assert store.tools["api_call"]["repeated_calls"] == 1
+
+
+def test_loop_detector_fingerprint_excludes_credentials(rf, monkeypatch):
+    store = rf.Store()
+    monkeypatch.setenv("RARIFLAT_LOOP_REPEAT", "3")
+    args = {"query": "same request", "api_key": "secret-one"}
+    assert store.loop_detected("api_call", args, now=10) is False
+    args["api_key"] = "secret-two"
+    assert store.loop_detected("api_call", args, now=11) is False
+    args["api_key"] = "secret-three"
+    assert store.loop_detected("api_call", args, now=12) is True
 
 def test_tokens_split_compound_tool_names_and_normalize_documentation(rf):
     tokens = rf._tokens("tool_search webSearch documentation")

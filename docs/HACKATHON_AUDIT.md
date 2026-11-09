@@ -1,48 +1,33 @@
 # Audit kesiapan Hermes Plugin Hackathon — Rariflat
 
-## Kesimpulan
+**Status per 9 November 2026.** Rariflat sudah melampaui plugin yang hanya berupa prompt atau skill: ia memasang tools dan hooks, belajar dari hasil panggilan lokal, menyediakan guard opt-in, serta pane Hermes Desktop. Ini sejalan dengan preferensi kontes terhadap plugin yang melakukan fungsi nyata. Juri menilai usefulness, reliability, polish, dan creativity; submission tetap memerlukan PR katalog resmi, demo X di bawah 90 detik yang menandai `@NousResearch`, serta form dengan kedua tautan. [1]
 
-Rariflat sudah memiliki lebih dari sekadar prompt atau skill: plugin mendaftarkan tools, hooks, guard opsional, dan pane Desktop; itu cocok dengan preferensi juri terhadap plugin yang melakukan pekerjaan nyata. Kontes menilai usefulness, reliability, polish, dan creativity. Submission wajib mencakup PR ke katalog resmi Hermes, video demo di X yang berdurasi di bawah 90 detik dan menandai `@NousResearch`, serta pengisian form dengan kedua tautan sebelum 5 PM Eastern, 11 November 2026—setara 5 AM WIB, 12 November 2026. [1]
+## Perbaikan audit lokal
 
-## Status PR dan sumber
+- Penyimpanan kini memakai `plugins.plugin_storage.plugin_data_dir("rariflat")`, mengikuti `HERMES_HOME` dan profile Hermes aktif. `requires_hermes` pada manifest dan draft katalog dinaikkan ke `>=0.22.6`, batas yang menyediakan API tersebut. `RARIFLAT_DATA_DIR` tetap menjadi override eksplisit. [3] [4]
+- Loop detector kini memfilter field credential dan pola secret yang dikenali sebelum membuat fingerprint, menyamakan jalur itu dengan fingerprint persistensi.
+- `repeated_calls_total` kini bertambah pada setiap panggilan identik, termasuk setelah data disimpan lalu dimuat ulang.
+- Handler rekomendasi dan status memakai snapshot state di bawah lock. Ini mencegah iterasi atas dictionary yang sedang berubah ketika beberapa panggilan tool terjadi bersamaan.
+- README, quickstart, demo, dan draft PR kini menjelaskan bahwa rekomendasi berasal dari **nama tool yang benar-benar diamati**, bukan indeks skills terpasang. Draft katalog dirapikan sebagai YAML valid dengan deskripsi yang mudah dibaca.
+- README dan quickstart dipindahkan ke SHA publik `911a10bac40ff536115f7485d4bba42186f36e83`, yaitu `main` yang ditemukan saat audit. SHA tersebut belum memuat perubahan lokal pada audit ini; setelah perubahan dipublikasikan, semua pin harus diganti menjadi SHA final yang sama.
 
-PR katalog resmi [`NousResearch/hermes-agent#151221`](https://github.com/NousResearch/hermes-agent/pull/151221) memang sudah ada; koreksi dari dugaan awal audit: PR #7 yang Anda kirim bukan satu-satunya PR terkait. #151221 menambahkan entry katalog komunitas dan mem-pin source SHA `950796253faa2d9b69c3c2d1256924d18ae03e9c`. Halaman PR menyatakan workflow katalog berstatus `action_required`, sehingga validasi katalog pada SHA tersebut belum dijalankan dan memerlukan persetujuan maintainer. [2]
+## Status submission yang harus ditutup
 
-PR repo Anda [`rariflat-hermes#7`](https://github.com/wadezigh96/rariflat-hermes/pull/7) sudah di-squash-merge ke `main` sebagai commit `78a76ff`; semua check yang terlihat sebelum merge lulus. PR tersebut memperbaiki contoh install dan validasi Hermes, tetapi bukan PR penambahan entry ke `NousResearch/hermes-agent`. [3]
+PR katalog resmi [NousResearch/hermes-agent#151221](https://github.com/NousResearch/hermes-agent/pull/151221) sudah ada, tetapi halaman PR yang diperiksa menunjukkan pin `950796253faa2d9b69c3c2d1256924d18ae03e9c`. Deskripsi PR yang diperbarui pada 8 November menyebut workflow katalog berstatus `action_required` saat itu; status GitHub sekarang perlu diperiksa kembali. PR tersebut harus diperbarui agar mem-pin commit akhir dari source yang telah dipublikasikan, dan validasi katalog harus berjalan pada SHA yang persis sama. Aturan katalog mewajibkan exact 40-character SHA, metadata kemampuan yang cocok dengan kode, dan persetujuan maintainer. [2] [6]
 
-Ada ketidaksamaan pin yang perlu ditutup sebelum rilis. Sebelum PR #7 di-merge, draft `plugin-catalog/rariflat.yaml` mem-pin `1954ef...` dan quickstart mem-pin `6bbcfa...`, sedangkan PR #151221 mem-pin `950796...`. PR #7 menyamakan quickstart ke `950796...`, tetapi draft YAML di `main` masih tertinggal. Commit source `950796...` lebih lama dari code HEAD `9dcf078...` yang diaudit; merge docs menghasilkan `78a76ff` tanpa mengubah source. Saya membuat commit kode baru `31c522ddccd32674a474bf8b73273b4605e14b2e` di branch `fix/hackathon-readiness`; README, quickstart, dan draft YAML pada branch ini kini mem-pin commit kode tersebut. Setelah branch dipush, entry pada PR #151221 masih harus diperbarui ke SHA yang sama. Pin harus menunjuk tepat ke source yang divalidasi. [2] [4] [5] [6] [7] [8] [9]
+Saya belum menguji pane pada Hermes Desktop sungguhan. Tes kontrak JavaScript hanya membuktikan normalisasi event, bukan bahwa runtime Desktop kompatibel dan menampilkan UI. Ambil screenshot nyata untuk PR serta rekam demonstrasi dari runtime aktif; jangan gunakan mock UI sebagai bukti integrasi. [5]
 
-## Perbaikan yang saya terapkan di working copy
+Pengumuman menetapkan tenggat **5:00 PM Eastern, 11 November 2026**, setara **5:00 pagi WIB, 12 November 2026**. Demo harus menunjukkan plugin bekerja, bukan hanya menjelaskan fitur. Setelah PR katalog final dan demo X tersedia, kirim kedua tautan melalui form resmi. [1]
 
-- Guard kini menyimpan pilihan ON/OFF secara lokal dan tetap menghormati `RARIFLAT_GUARD` bila variabel itu sengaja diatur saat startup.
-- `RARIFLAT_COOLDOWN=0` kini memulihkan streak pada pemanggilan berikutnya, bukan membuat blokir terus-menerus.
-- Hasil error mentah tidak lagi dikirim ke event Desktop; pane menerima alasan umum agar error yang memuat token atau data pengguna tidak ikut ditampilkan.
-- `RARIFLAT_LEARN_ARGS=0` kini benar-benar menghentikan penambahan token dari argumen tool, sesuai dokumentasi privasi.
-- Installer tidak lagi bergantung pada `rsync` dan menyalin `event-contract.mjs` yang dibutuhkan pane Desktop. Tes smoke installer ditambahkan ke CI.
-- Checklist submission dan demo script diperbaiki. Demo tidak lagi menyebut perintah `/rariflat explain` atau countdown cooldown yang tidak tersedia.
+## Validasi lokal
 
-## Hasil validasi
-
-Pada source yang akan dipublish: 37 tes Python lulus, 2 tes Node lulus, installer smoke test lulus, `git diff --check` bersih, dan Hermes Agent v0.23.0 meluluskan `hermes plugins validate . --install-deps` serta `hermes plugins doctor .`. SHA `950796...` yang saat ini dipin PR #151221 juga lulus validator lokal dan Plugin Doctor. Security scan dan pemeriksaan Desktop surface lulus. Ini belum menggantikan workflow katalog resmi yang masih `action_required`, dan tidak membuktikan pane berjalan pada sesi Hermes Desktop sungguhan; rekaman layar dan screenshot harus diambil dari runtime yang benar.
-
-## Yang masih harus dilakukan
-
-1. Push branch perubahan dan pastikan commit source `31c522d` tersedia publik; pin lokal sudah diarahkan ke SHA tersebut.
-2. Minta maintainer Hermes menyetujui workflow PR #151221 yang berstatus `action_required`, lalu tangani hasil validasi katalog sampai hijau.
-3. Uji pane secara langsung di Hermes Desktop dan ambil screenshot nyata untuk PR katalog.
-4. Rekam demo yang menunjukkan aktivitas tool, hasil rekomendasi, dan guard benar-benar memblokir panggilan. Tautan X yang Anda berikan (`Time to cook`) bukan video demo; posting demo terpisah dan tag `@NousResearch`.
-5. Kirim tautan PR katalog resmi dan tautan demo X melalui Typeform sebelum tenggat.
-
-Audit teknis dan tes yang lulus tidak menjamin kemenangan; hasil akhir juga bergantung pada review maintainer dan demo nyata yang memperlihatkan fitur bekerja.
+Working copy ini lolos **43 tes Python**, **7 tes Node**, smoke test installer, kompilasi Python, parse YAML untuk kedua manifest, pemeriksaan format SHA/compatibility, dan `git diff --check`. Hermes CLI tidak tersedia di lingkungan audit, jadi `hermes plugins validate . --install-deps` dan `hermes plugins doctor .` belum dijalankan di sini. Pemeriksaan resmi tersebut tetap wajib sebelum mengklaim source final siap katalog. Tes CLI juga tidak menggantikan uji langsung pane Desktop.
 
 ## Referensi
 
 [1]: https://x.com/NousResearch/status/2118094256438936062 "Pengumuman resmi Hermes Agent Plugin Hackathon"
-[2]: https://github.com/NousResearch/hermes-agent/pull/151221 "PR katalog resmi Rariflat"
-[3]: https://github.com/wadezigh96/rariflat-hermes/pull/7 "PR dokumentasi Rariflat nomor 7"
-[4]: https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/catalog-submission "Panduan submission katalog Hermes"
-[5]: https://github.com/wadezigh96/rariflat-hermes/commit/9dcf078d62fea5ee7bd43620db44e187c1a44af5 "Commit main Rariflat yang diaudit"
-[6]: https://github.com/wadezigh96/rariflat-hermes/commit/950796253faa2d9b69c3c2d1256924d18ae03e9c "Commit source yang dipin PR katalog"
-[7]: https://raw.githubusercontent.com/wadezigh96/rariflat-hermes/main/plugin-catalog/rariflat.yaml "Draft catalog YAML pada main sebelum audit"
-[8]: https://raw.githubusercontent.com/wadezigh96/rariflat-hermes/main/docs/QUICKSTART_AND_USE_CASES.md "Quickstart pada main sebelum audit"
-[9]: https://github.com/wadezigh96/rariflat-hermes/commit/31c522ddccd32674a474bf8b73273b4605e14b2e "Commit kode perbaikan hackathon"
+[2]: https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/catalog-submission "Aturan submission katalog Hermes"
+[3]: https://hermes-agent.nousresearch.com/docs/developer-guide/plugins "Panduan pengembangan plugin Hermes dan penyimpanan state"
+[4]: https://raw.githubusercontent.com/NousResearch/hermes-agent/v0.22.6/plugins/plugin_storage.py "API plugin_data_dir pada Hermes v0.22.6"
+[5]: https://hermes-agent.nousresearch.com/docs/developer-guide/desktop-plugin-sdk "Panduan Hermes Desktop Plugin SDK"
+[6]: https://github.com/NousResearch/hermes-agent/pull/151221 "PR katalog resmi Rariflat"
