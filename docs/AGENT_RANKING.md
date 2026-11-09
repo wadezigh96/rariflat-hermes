@@ -16,7 +16,7 @@ Tier is based on the agent's observed performance score and is withheld until at
 
 Ranking order is tier-first: MYTHIC, then LEGEND, then EPIC, then DEVELOPING, with UNRANKED last. Within a tier, the displayed ranking score breaks ties. That score blends current task capability fit (60%) with historical performance (40%) once there are five observations. Before that threshold, ranking is provisional and uses capability fit only; tier remains UNRANKED.
 
-Historical performance is calculated from locally recorded completed tasks:
+For Hermes delegated subagents, `subagent_start` / `subagent_stop` lifecycle hooks automatically capture the actual role, goal, completion status, and measured duration when a child finishes. This updates the local ranking immediately without requiring a manual rating call. The hook records only the bounded task goal/summary needed for fit scoring; it does not store raw tool inputs or outputs. Primary-agent turns are not automatically attributed to a catalog agent.\n\nFor A2A agents, call `rariflat_agent_complete` from the integration that knows the real A2A task outcome; the generic Hermes subagent hook cannot reliably infer which external A2A endpoint completed a task.\n\nHistorical performance is calculated from locally recorded completed tasks:
 - success rate = successful completions / recorded completions;
 - average task fit = lexical overlap between task wording and declared capabilities;
 - optional average quality = arithmetic mean of user/evaluator-supplied 0–100 quality scores;
@@ -30,7 +30,7 @@ Use `rariflat_agent_register` with:
 - `kind=hermes` for a Hermes catalog/repository agent and a verifiable `install_ref`;
 - `kind=a2a` for an A2A agent, HTTPS `endpoint`, and Agent Card source.
 
-Capabilities must be supplied from the actual catalog manifest or Agent Card. Do not invent capabilities. Registration stores metadata locally; it does not fetch remote URLs, install packages, connect to endpoints, or execute an agent.
+Capabilities must be supplied from the actual catalog manifest or Agent Card. Do not invent capabilities. Registration stores metadata locally; it does not fetch remote URLs, install packages, connect to endpoints, or execute an agent. Runtime-observed Hermes subagent roles are registered separately from installable plugin catalog entries.
 
 ## Record a completed task
 
