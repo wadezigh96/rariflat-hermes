@@ -1,21 +1,26 @@
 # Submission checklist
 
-## Verify the plugin before publishing
+## Source and validation
 
-- [x] Run `python -m pytest -q tests`, `node --test tests/desktop_event_contract.test.mjs`, `bash tests/test_install.sh`, and `git diff --check`.
-- [x] Run `hermes plugins validate . --install-deps` and `hermes plugins doctor .` using Hermes `>=0.22.6`, against source SHA `c5d6fba59c85eddfe75e2d890dfd0bc678060aa6`.
-- [x] Confirm `plugin.yaml` capabilities match the registered tools and hooks.
-- [ ] Test the optional Desktop pane in Hermes Desktop and capture a genuine screenshot for the catalog PR; unit tests alone do not prove live Desktop integration.
-- [x] Push the finished source changes. The draft entry at `plugin-catalog/rariflat.yaml` and immutable install instructions now pin the pushed 40-character source SHA above. Never pin an unpushed or older tree.
+- [x] Source is published on the repository default branch at [commit 5d00db7](https://github.com/wadezigh96/rariflat-hermes/commit/5d00db7bcc949405d035bf37dfa7b5ba51aaaa82).
+- [x] README, quickstart, and the local catalog draft pin the same immutable source commit.
+- [x] The plugin declares six tools and four hooks; the manifest and catalog draft list the same capabilities.
+- [x] Python unit tests, Desktop event-contract tests, installer smoke test, and Hermes validation are part of GitHub Actions.
+- [x] Local isolated functional testing on Hermes 0.22.2 exercised all six handlers and all four hooks using a temporary data directory.
+- [ ] Validate the unmodified repository manifest on Hermes >=0.22.6. The installed Termux runtime is Hermes 0.22.2; its local compatibility test used a separate test copy with the minimum version lowered and does not satisfy this official requirement.
+- [ ] Test the optional Desktop pane in a compatible Hermes Desktop runtime and capture a genuine screenshot. Contract tests and backend event inspection are not proof of a live UI session.
 
-## Complete the contest entry
+## Hackathon deliverables
 
-The local YAML file in this repository is only a draft. The required catalog PR must add one `plugin-catalog/rariflat.yaml` file to the official [`NousResearch/hermes-agent`](https://github.com/NousResearch/hermes-agent) repository. It must pin the exact public source commit and include accurate capabilities and disclosure. A PR to this Rariflat repository does not satisfy that catalog requirement.
+- [ ] Confirm the official catalog PR status and ensure its entry pins the same validated source SHA.
+- [ ] Record a genuine demo video under 90 seconds using the real Hermes runtime; do not substitute mock UI or simulated activity.
+- [ ] Publish the demo and tag `@NousResearch`.
+- [ ] Submit the official catalog PR link and demo link through the official entry form.
+- [ ] Re-check the official deadline and submission requirements before submitting.
 
-- [x] Update the existing catalog PR #151221 in `NousResearch/hermes-agent` to the exact pushed SHA and matching compatibility/disclosure metadata ([fork commit `78c6101eab`](https://github.com/wadezigh96/hermes-agent/commit/78c6101eab)).
-- [ ] Add a genuine Hermes Desktop screenshot to PR #151221 after testing the live pane; contract tests are not a substitute for runtime evidence.
-- [ ] Post a working demo video on X, keep it under 90 seconds, show the plugin operating, and tag `@NousResearch`.
-- [ ] Submit both the official catalog PR link and the X demo link through the [hackathon entry form](https://form.typeform.com/to/FwJLvOln).
-- [ ] Submit by **5:00 PM Eastern Time on November 11, 2026**, per the [official announcement](https://x.com/NousResearch/status/2118094256438936062).
+## Safety and scope
 
-The [demo outline](DEMO.md) is designed to show usefulness, reliability, polish, and the plugin behavior judges need to see. Do not use a mock UI in place of the running plugin.
+- Rariflat's router is advisory: it ranks previously observed tool names and does not dispatch tasks or execute recommendations.
+- The guard is opt-in and disabled by default.
+- Registry and score data are local. Rariflat itself does not initiate network requests, telemetry, or subprocess execution.
+- Do not claim live Desktop integration until it has been tested in a compatible Desktop runtime.
