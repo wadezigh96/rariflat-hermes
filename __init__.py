@@ -598,8 +598,9 @@ def register(ctx):
                 args.get("agent_id"), args.get("task"), args.get("success"),
                 quality=args.get("quality"), duration_seconds=args.get("duration_seconds"),
             )
+            _emit_agent_rank(agent_registry.rank(""))
             return json.dumps({"recorded": True, "agent": item,
-                               "message": "Completion recorded from the supplied outcome; use only after a task actually finishes."})
+                               "message": "Completion recorded from the supplied outcome; Desktop agent ranking refreshed."})
         except (TypeError, ValueError) as exc:
             return json.dumps({"recorded": False, "error": str(exc)})
 
