@@ -47,7 +47,7 @@ The Rariflat catalog entry has been merged, but the upstream Hermes catalog curr
 hermes plugins install wadezigh96/rariflat-hermes --ref 20b2076e319aff773826ae6bde49e7e06598f878 --enable
 ```
 
-The `--ref` value is the immutable 40-character SHA for the current branch commit. This is a custom Git install, not a catalog-provenance install; review the source and accept Hermes' normal install/enable prompts. The command uses Hermes' documented Git installation flow; `--enable` skips the enable prompt. Review and accept any dependency-consent prompt shown by Hermes. For future source changes, update this pin only after the exact commit has passed tests and Hermes validation. Users installing by catalog name will receive the upstream catalog's currently reviewed older pin until its separate SHA-bump PR is merged.
+The `--ref` value is the immutable 40-character SHA for the exact plugin source revision that passed the branch test suite and official Hermes validation. This is a custom Git install, not a catalog-provenance install; review the source and accept Hermes' normal install/enable prompts. The command uses Hermes' documented Git installation flow; `--enable` skips the enable prompt. Review and accept any dependency-consent prompt shown by Hermes. For future source changes, update this pin only after the exact commit has passed tests and Hermes validation. Users installing by catalog name will receive the upstream catalog's currently reviewed older pin until its separate SHA-bump PR is merged.
 
 ### 3. Validate the plugin
 
