@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 TIERS = (("MYTHIC", 90.0), ("LEGEND", 80.0), ("EPIC", 70.0))
+TIER_ORDER = {"MYTHIC": 5, "LEGEND": 4, "EPIC": 3, "DEVELOPING": 2, "UNRANKED": 1}
 _TOKEN_RE = re.compile(r"[a-z0-9]{2,}")
 _ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._:-]{1,79}$")
 
@@ -165,7 +166,7 @@ class AgentRegistry:
             item["requested_task_fit"] = round(fit, 2)
             item["ranking_score"] = round(0.6 * fit + 0.4 * item["score"], 2) if item["observations"] >= 5 else round(fit * 0.6, 2)
             rows.append(item)
-        rows.sort(key=lambda x: (x["ranking_score"], x["observations"], x["name"].lower()), reverse=True)
+        rows.sort(key=lambda x: (TIER_ORDER.get(x["tier"], 0), x["ranking_score"], x["observations"], x["name"].lower()), reverse=True)
         for index, row in enumerate(rows, 1):
             row["rank"] = index
         return rows
