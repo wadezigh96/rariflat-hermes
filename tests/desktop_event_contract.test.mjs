@@ -181,3 +181,11 @@ test('Desktop agent ranking separates requested fit and historical performance',
   assert.match(pluginSource, /agent\.performance_score/)
   assert.match(pluginSource, /Source not independently verified/)
 })
+
+
+test('Desktop offers the official Hermes install confirmation flow, not shell execution', () => {
+  assert.match(pluginSource, /hermes:\/\/plugin\/install\?repo=/)
+  assert.match(pluginSource, /Review & install in Hermes/)
+  assert.match(pluginSource, /encodeURIComponent\(agent\.install_ref\)/)
+  assert.doesNotMatch(pluginSource, /child_process|execSync|spawnSync/)
+})
