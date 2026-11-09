@@ -1,8 +1,10 @@
 # Rariflat 2.0.0
 
-Rariflat adds live status characters, local reliability learning, task-aware tool recommendations, and an **opt-in** failure-streak / repeated-call guard to Hermes Agent.
+Rariflat adds live status characters, evidence-based tool and Hermes/A2A agent ranking, observed completion metrics, and an **opt-in** failure-streak / repeated-call guard to Hermes Agent.
 
 It is designed to make tool activity easier to understand, help operators compare tools using observed outcomes, and surface repeated-call or failure patterns without silently taking over agent execution.
+
+- [Agent ranking: Hermes + A2A, tiers, and live completion metrics](docs/AGENT_RANKING.md)
 
 ## Problems Rariflat helps address
 
@@ -41,7 +43,7 @@ Each recommendation includes the measured factor values, use/repeat counts, and 
 Until the official catalog PR is accepted and published, install the reviewed source revision directly:
 
 ```bash
-hermes plugins install wadezigh96/rariflat-hermes --ref c5d6fba59c85eddfe75e2d890dfd0bc678060aa6 --enable
+hermes plugins install wadezigh96/rariflat-hermes --ref e7a8d9bb3fc88eda28ebd5cd253a3a4a48d855cb --enable
 ```
 
 The `--ref` value is the immutable 40-character SHA for the audited source commit. It passed the Hermes v0.23.0 plugin validator and Doctor. The command uses Hermes' documented Git installation flow; `--enable` skips the enable prompt. Review and accept any dependency-consent prompt shown by Hermes. For future source changes, update this pin and the catalog PR to the exact pushed and validated commit. After the catalog listing is accepted, users can install by catalog name with `hermes plugins install rariflat --enable`.

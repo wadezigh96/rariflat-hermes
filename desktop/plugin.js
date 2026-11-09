@@ -242,8 +242,72 @@ function RouteCard({ decision }) {
   })
 }
 
+function AgentRankingCard({ ranking }) {
+  return jsxs('section', {
+    className: 'rounded-xl border border-violet-400/30 bg-violet-400/5 p-3',
+    'aria-label': 'Hermes and A2A agent ranking',
+    children: [
+      jsxs('div', { className: 'flex items-center justify-between gap-2', children: [
+        jsx('h2', { className: 'font-semibold', children: 'Agent ranking' }),
+        jsx('span', { className: 'rounded-full border px-2 py-0.5 text-[10px]', children: 'Live on-data' }),
+      ] }),
+      jsx('p', { className: 'mt-1 text-[10px] opacity-70', children: 'Hermes catalog + A2A · MYTHIC > LEGEND > EPIC · recommendations only; no automatic install or dispatch.' }),
+      ranking.recommended.length ? jsx('ol', {
+        className: 'mt-3 space-y-3',
+        children: ranking.recommended.map((agent) => jsxs('li', {
+          className: 'rounded-lg border border-white/10 bg-black/10 p-2',
+          children: [
+            jsxs('div', { className: 'flex items-start justify-between gap-2', children: [
+              jsxs('div', { className: 'min-w-0', children: [
+                jsx('strong', { className: 'block truncate text-xs', children: `#${agent.rank} · ${agent.name}` }),
+                jsx('span', { className: 'text-[10px] opacity-60', children: `${agent.kind.toUpperCase()} · ${agent.status}` }),
+              ] }),
+              jsx('span', { className: 'shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold', children: agent.tier }),
+            ] }),
+            jsxs('div', { className: 'mt-2 flex justify-between text-[10px]', children: [
+              jsx('span', { children: `Ranking score ${Math.round(agent.score)}%` }),
+              jsx('span', { children: `${agent.observations} completed tasks` }),
+            ] }),
+            jsx('div', { className: 'mt-1 h-1 overflow-hidden rounded bg-white/10', children:
+              jsx('div', { className: 'h-full rounded bg-violet-400', style: { width: `${agent.score}%` } }) }),
+            jsx('div', { className: 'mt-2 grid grid-cols-2 gap-1 text-[10px] opacity-80', children: [
+              jsx('span', { children: `Success ${Math.round(agent.success_rate)}%` }),
+              jsx('span', { children: `Task fit ${Math.round(agent.requested_task_fit)}%` }),
+              jsx('span', { children: `Historical score ${Math.round(agent.performance_score)}%` }),
+              jsx('span', { children: agent.average_quality == null ? 'Quality: not supplied' : `Quality ${Math.round(agent.average_quality)}%` }),
+              jsx('span', { children: agent.average_duration_seconds == null ? 'Time: n/a' : `Avg ${agent.average_duration_seconds}s` }),
+            ] }),
+            jsx('p', { className: 'mt-2 text-[10px] opacity-60', children: agent.evidence === 'insufficient_observations'
+              ? 'Not ranked by tier yet · needs at least 5 real completions.'
+              : 'Rates calculated from recorded completed tasks.' }),
+            jsx('p', { className: 'mt-1 break-all text-[10px] opacity-70', children: `Source: ${agent.source || 'not provided'}` }),
+            jsx('p', { className: 'break-all text-[10px] opacity-70', children: agent.status === 'runtime_observed'
+              ? 'Runtime source: Hermes delegated subagent'
+              : agent.kind === 'a2a'
+                ? `Endpoint: ${agent.endpoint || 'not connected'}`
+                : `Install reference: ${agent.install_ref || 'not installed'}` }),
+            jsx('p', { className: 'text-[10px] opacity-60', children: 'Source not independently verified · review before installing or connecting.' }),
+            agent.kind === 'hermes' && agent.status !== 'runtime_observed' && /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/.test(agent.install_ref || '')
+              ? jsx('a', {
+                  className: 'mt-2 inline-flex rounded-lg border border-violet-400/40 px-3 py-2 text-[11px] font-semibold hover:bg-violet-400/10',
+                  href: `hermes://plugin/install?repo=${encodeURIComponent(agent.install_ref)}&enable=1`,
+                  children: 'Review & install in Hermes',
+                })
+              : agent.kind === 'a2a'
+                ? jsx('a', { className: 'mt-2 inline-flex rounded-lg border px-3 py-2 text-[11px]',
+                    href: agent.source, target: '_blank', rel: 'noreferrer',
+                    children: 'Review A2A Agent Card' })
+                : null,
+          ],
+        }, agent.id)),
+      }) : jsx('p', { className: 'mt-3 text-xs opacity-70', children: 'No agents registered yet. Register a Hermes catalog entry or A2A Agent Card first.' }),
+    ],
+  })
+}
+
 function Pane() {
   const [last, setLast] = useState(null)
+  const [agentRanking, setAgentRanking] = useState(null)
   const [history, setHistory] = useState([])
   const [decision, setDecision] = useState(null)
   const [liveMessage, setLiveMessage] = useState('')
@@ -267,9 +331,19 @@ function Pane() {
         ? `Rariflat recommends ${best.skill}, score ${Math.round(best.score)} out of 100. ${getEvidenceStatus(best, nextDecision.minimumObservations).label}. Advisory only.`
         : 'Rariflat has no observed tools to recommend yet.')
     })
+    const unsubscribeAgentRank = host.onEvent?.('plugin.rariflat.agent_rank', (event) => {
+      const payload = event?.payload || event || {}
+      const recommended = Array.isArray(payload.recommended) ? payload.recommended.slice(0, 10) : []
+      setAgentRanking({ recommended })
+      const best = recommended[0]
+      setLiveMessage(best
+        ? `Agent ranking updated. ${best.name} is ${best.tier}, based on ${best.observations} completed tasks.`
+        : 'No registered Hermes or A2A agents to rank yet.')
+    })
     return () => {
       unsubscribeTool?.()
       unsubscribeRoute?.()
+      unsubscribeAgentRank?.()
     }
   }, [])
   const label = (item) => item.phase === 'blocked' ? 'blocked by guard'
@@ -281,6 +355,7 @@ function Pane() {
       jsx('div', { className: 'text-lg font-semibold tracking-tight', children: 'Rariflat' }),
       jsx('div', { className: 'sr-only', role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true', children: liveMessage }),
       decision ? jsx(RouteCard, { decision }) : null,
+      agentRanking ? jsx(AgentRankingCard, { ranking: agentRanking }) : null,
       last ? jsxs('div', {
         className: 'rounded-xl p-4 text-center transition-all motion-reduce:transition-none',
         style: { background: last.color + '18', border: `1px solid ${last.color}55` },

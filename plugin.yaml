@@ -1,16 +1,21 @@
 name: rariflat
 version: "2.0.0"
-description: Tool-call status characters, reliability scoring, task-aware tool recommendations with measured rarity and restraint, and an opt-in loop/circuit-breaker guard.
+description: Tool-call status, explainable tool ranking, evidence-based Hermes and A2A agent ranking with live completion rates, and an opt-in loop guard.
 manifest_version: 2
 api_version: 1
 license: MIT
 homepage: https://github.com/wadezigh96/rariflat-hermes
-tags: [status, router, reliability, guard, desktop]
+tags: [status, router, agent-ranking, reliability, guard, desktop]
 requires_hermes: ">=0.22.6"
 provides_tools:
   - rariflat_route
   - rariflat_status
   - rariflat_guard
+  - rariflat_agent_register
+  - rariflat_agent_complete
+  - rariflat_agent_rank
 provides_hooks:
   - pre_tool_call
   - post_tool_call
+  - subagent_start
+  - subagent_stop

@@ -547,3 +547,45 @@ def test_status_activity_includes_more_than_ten_tools(rf, ctx):
     status = json.loads(ctx.tools["rariflat_status"]({}))
     assert len(status["tools_activity"]) == 12
     assert {item["name"] for item in status["tools_activity"]} == {f"tool_{i}" for i in range(12)}
+
+
+
+def test_subagent_lifecycle_records_real_completion_metrics(rf, ctx):
+    ctx.hooks["subagent_start"](
+        child_session_id="child-session-1",
+        child_role="researcher",
+        child_goal="research official documentation",
+    )
+    ctx.hooks["subagent_stop"](
+        child_session_id="child-session-1",
+        child_role="researcher",
+        child_summary="Found official documentation.",
+        child_status="completed",
+        duration_ms=2500,
+    )
+    ranked = json.loads(ctx.tools["rariflat_agent_rank"]({"task": "research documentation"}))
+    assert ranked["dispatches_to_agent"] is False
+    assert ranked["recommended"][0]["id"] == "hermes-runtime-researcher"
+    assert ranked["recommended"][0]["observations"] == 1
+    assert ranked["recommended"][0]["success_rate"] == 100
+    assert ranked["recommended"][0]["average_duration_seconds"] == 2.5
+    assert ranked["recommended"][0]["tier"] == "UNRANKED"
+
+
+def test_failed_subagent_is_recorded_as_failed_completion(rf, ctx):
+    ctx.hooks["subagent_start"](
+        child_session_id="child-session-2",
+        child_role="coder",
+        child_goal="write a unit test",
+    )
+    ctx.hooks["subagent_stop"](
+        child_session_id="child-session-2",
+        child_role="coder",
+        child_status="failed",
+        duration_ms=1000,
+    )
+    ranked = json.loads(ctx.tools["rariflat_agent_rank"]({"task": "write a unit test"}))
+    coder = next(x for x in ranked["recommended"] if x["id"] == "hermes-runtime-coder")
+    assert coder["observations"] == 1
+    assert coder["success_rate"] == 0
+    assert coder["tier"] == "UNRANKED"

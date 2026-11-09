@@ -165,3 +165,27 @@ test('keeps display counts consistent when the event marks saturation', () => {
   assert.equal(getEvidenceStatus(item).countsCapped, true)
   assert.match(getEvidenceStatus(item).label, /At least 1,000,000 observed calls/)
 })
+
+
+test('Desktop pane exposes live Hermes and A2A agent tier rankings', () => {
+  assert.match(pluginSource, /function AgentRankingCard\(/)
+  assert.match(pluginSource, /plugin\.rariflat\.agent_rank/)
+  assert.match(pluginSource, /MYTHIC|LEGEND|EPIC/)
+  assert.match(pluginSource, /completed tasks/)
+  assert.match(pluginSource, /no automatic install or dispatch/)
+})
+
+
+test('Desktop agent ranking separates requested fit and historical performance', () => {
+  assert.match(pluginSource, /agent\.requested_task_fit/)
+  assert.match(pluginSource, /agent\.performance_score/)
+  assert.match(pluginSource, /Source not independently verified/)
+})
+
+
+test('Desktop offers the official Hermes install confirmation flow, not shell execution', () => {
+  assert.match(pluginSource, /hermes:\/\/plugin\/install\?repo=/)
+  assert.match(pluginSource, /Review & install in Hermes/)
+  assert.match(pluginSource, /encodeURIComponent\(agent\.install_ref\)/)
+  assert.doesNotMatch(pluginSource, /child_process|execSync|spawnSync/)
+})

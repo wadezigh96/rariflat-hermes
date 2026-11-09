@@ -7,7 +7,7 @@ DEST="$HERMES_HOME/plugins/rariflat"
 DESKTOP_DEST="$HERMES_HOME/desktop-plugins/rariflat"
 
 mkdir -p "$DEST/desktop" "$DESKTOP_DEST"
-cp "$SRC/plugin.yaml" "$SRC/__init__.py" "$SRC/README.md" "$SRC/LICENSE" "$DEST/"
+cp "$SRC/plugin.yaml" "$SRC/__init__.py" "$SRC/agent_ranking.py" "$SRC/README.md" "$SRC/LICENSE" "$DEST/"
 cp "$SRC/desktop/plugin.js" "$SRC/desktop/event-contract.mjs" "$DEST/desktop/"
 cp "$SRC/desktop/plugin.js" "$SRC/desktop/event-contract.mjs" "$DESKTOP_DEST/"
 
