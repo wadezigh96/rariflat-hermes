@@ -287,6 +287,17 @@ function AgentRankingCard({ ranking }) {
                 ? `Endpoint: ${agent.endpoint || 'not connected'}`
                 : `Install reference: ${agent.install_ref || 'not installed'}` }),
             jsx('p', { className: 'text-[10px] opacity-60', children: 'Source not independently verified · review before installing or connecting.' }),
+            agent.kind === 'hermes' && agent.status !== 'runtime_observed' && /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/.test(agent.install_ref || '')
+              ? jsx('a', {
+                  className: 'mt-2 inline-flex rounded-lg border border-violet-400/40 px-3 py-2 text-[11px] font-semibold hover:bg-violet-400/10',
+                  href: `hermes://plugin/install?repo=${encodeURIComponent(agent.install_ref)}&enable=1`,
+                  children: 'Review & install in Hermes',
+                })
+              : agent.kind === 'a2a'
+                ? jsx('a', { className: 'mt-2 inline-flex rounded-lg border px-3 py-2 text-[11px]',
+                    href: agent.source, target: '_blank', rel: 'noreferrer',
+                    children: 'Review A2A Agent Card' })
+                : null,
           ],
         }, agent.id)),
       }) : jsx('p', { className: 'mt-3 text-xs opacity-70', children: 'No agents registered yet. Register a Hermes catalog entry or A2A Agent Card first.' }),
