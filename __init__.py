@@ -529,6 +529,8 @@ def _emit_agent_rank(recommended: list[dict]) -> None:
                 "source_verified": False,
                 "tier": item.get("tier") if item.get("tier") in {"MYTHIC", "LEGEND", "EPIC", "DEVELOPING", "UNRANKED"} else "UNRANKED",
                 "score": max(0.0, min(100.0, float(item.get("ranking_score") or 0))),
+                "performance_score": max(0.0, min(100.0, float(item.get("performance_score") or 0))),
+                "requested_task_fit": max(0.0, min(100.0, float(item.get("requested_task_fit") or 0))),
                 "observations": max(0, min(1000000, int(item.get("observations") or 0))),
                 "success_rate": max(0.0, min(100.0, float(item.get("success_rate") or 0))),
                 "average_task_fit": max(0.0, min(100.0, float(item.get("average_task_fit") or 0))),
