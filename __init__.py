@@ -711,7 +711,12 @@ def register(ctx):
         if agent_registry is None:
             return None
         key = str(child_session_id or "").strip()
-        started = active_subagents.pop(key, {})
+        if not key:
+            return None
+        started = active_subagents.pop(key, None)
+        if started is None:
+            # Do not turn an uncorrelated stop event into fabricated evidence.
+            return None
         role = str(child_role or started.get("role") or "unassigned")[:60]
         task = str(started.get("task") or child_summary or role)[:1000]
         try:
