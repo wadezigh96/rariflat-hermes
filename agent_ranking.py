@@ -89,8 +89,9 @@ class AgentRegistry:
                 raise ValueError("A2A endpoint must be HTTPS and must not embed credentials, query tokens, or fragments")
             if source_url.scheme != "https" or not source_url.netloc or source_url.username or source_url.password or source_url.query or source_url.fragment:
                 raise ValueError("A2A Agent Card source must be a clean HTTPS URL without embedded credentials or query tokens")
-        elif not install_ref:
-            raise ValueError("Hermes agents require a verifiable install_ref (repository or catalog reference)")
+        elif install_ref != "runtime:subagent":
+            if not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}", install_ref):
+                raise ValueError("Hermes install_ref must be a GitHub owner/repository slug; arbitrary URLs and shell commands are not accepted")
         with self._lock:
             if self._load_error:
                 raise RuntimeError("Agent registry data is unreadable; refusing changes")
