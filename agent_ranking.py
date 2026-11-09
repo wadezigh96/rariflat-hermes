@@ -84,8 +84,11 @@ class AgentRegistry:
             raise ValueError("name, kind (hermes/a2a), capabilities, and source are required")
         if kind == "a2a":
             parsed = urlparse(endpoint)
-            if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
-                raise ValueError("A2A endpoint must be an HTTPS URL without embedded credentials")
+            source_url = urlparse(source)
+            if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password or parsed.query or parsed.fragment:
+                raise ValueError("A2A endpoint must be HTTPS and must not embed credentials, query tokens, or fragments")
+            if source_url.scheme != "https" or not source_url.netloc or source_url.username or source_url.password or source_url.query or source_url.fragment:
+                raise ValueError("A2A Agent Card source must be a clean HTTPS URL without embedded credentials or query tokens")
         elif not install_ref:
             raise ValueError("Hermes agents require a verifiable install_ref (repository or catalog reference)")
         with self._lock:
