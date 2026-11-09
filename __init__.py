@@ -584,8 +584,6 @@ def register(ctx):
                 endpoint=args.get("endpoint", ""), install_ref=args.get("install_ref", ""),
                 description=args.get("description", ""),
             )
-            return json.dumps({"registered": True, "agent": item,
-                               "message": "Registered only; no install or connection was performed."})
             _emit_agent_rank(agent_registry.rank(""))
             return json.dumps({"registered": True, "agent": item,
                                "message": "Registered only; no install or connection was performed."})
