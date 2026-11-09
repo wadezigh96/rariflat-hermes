@@ -103,6 +103,25 @@ class AgentRegistry:
             self._save()
         return self.summary(agent_id)
 
+    def register_runtime(self, role):
+        """Register a Hermes delegated role observed directly from runtime hooks."""
+        role = str(role or "unassigned").strip()[:60] or "unassigned"
+        safe_role = re.sub(r"[^a-zA-Z0-9._-]+", "-", role).strip("-") or "unassigned"
+        agent_id = ("hermes-runtime-" + safe_role)[:80]
+        with self._lock:
+            existing = self.agents.get(agent_id)
+        if existing is None:
+            self.register(
+                agent_id, role, "hermes", [role],
+                "Hermes subagent lifecycle hook (runtime-observed)",
+                install_ref="runtime:subagent",
+                description="Observed delegated Hermes subagent role; not a separately installed plugin.",
+            )
+            with self._lock:
+                self.agents[agent_id]["status"] = "runtime_observed"
+                self._save()
+        return agent_id
+
     def record(self, agent_id, task, success, quality=None, duration_seconds=None):
         agent_id = str(agent_id or "").strip()
         task = str(task or "").strip()[:1000]
