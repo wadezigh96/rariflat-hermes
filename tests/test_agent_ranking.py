@@ -94,3 +94,13 @@ def test_task_ranking_and_historical_performance_are_separate(tmp_path):
     assert row["performance_score"] == 99
     assert row["requested_task_fit"] == 100
     assert row["tier"] == "MYTHIC"
+
+
+def test_runtime_role_is_distinguished_from_installable_plugin(tmp_path):
+    registry = AgentRegistry(tmp_path)
+    agent_id = registry.register_runtime("researcher")
+    item = registry.summary(agent_id)
+    assert item["kind"] == "hermes"
+    assert item["status"] == "runtime_observed"
+    assert item["source_verified"] is False
+    assert item["install_ref"] == "runtime:subagent"
