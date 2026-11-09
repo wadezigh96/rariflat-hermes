@@ -4,6 +4,8 @@ Rariflat adds live status characters, local reliability learning, task-aware too
 
 It is designed to make tool activity easier to understand, help operators compare tools using observed outcomes, and surface repeated-call or failure patterns without silently taking over agent execution.
 
+- [Agent ranking: Hermes + A2A, tiers, and live completion metrics](docs/AGENT_RANKING.md)
+
 ## Problems Rariflat helps address
 
 | Operational problem | How Rariflat helps | Important limitation |
