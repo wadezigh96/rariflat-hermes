@@ -22,7 +22,7 @@ def test_registration_is_not_performance_evidence(tmp_path):
     assert item["observations"] == 0
     assert item["tier"] == "UNRANKED"
     assert item["success_rate"] == 0
-    assert item["status"] == "registered_not_connected"
+    assert item["status"] == "source_unverified_not_connected"
 
 
 def test_completion_updates_live_observed_rates_and_average_duration(tmp_path):
@@ -70,4 +70,4 @@ def test_persists_agent_records_without_running_install_or_agent(tmp_path):
     registry.record("agent-a", "research", True)
     reloaded = AgentRegistry(tmp_path)
     assert reloaded.summary("agent-a")["observations"] == 1
-    assert reloaded.summary("agent-a")["status"] == "registered_not_connected"
+    assert reloaded.summary("agent-a")["status"] == "source_unverified_not_connected"
