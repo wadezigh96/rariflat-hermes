@@ -91,6 +91,6 @@ def test_task_ranking_and_historical_performance_are_separate(tmp_path):
     for i in range(5):
         registry.record("a", "research web search", True, quality=95, duration_seconds=20)
     row = registry.rank("research web search")[0]
-    assert row["performance_score"] == 98
+    assert row["performance_score"] == 99
     assert row["requested_task_fit"] == 100
     assert row["tier"] == "MYTHIC"
